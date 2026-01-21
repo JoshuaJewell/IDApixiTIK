@@ -1,0 +1,1 @@
+src/app/devices/NetworkManager.cmj : src/app/devices/DeviceFactory.cmj src/app/devices/DeviceFactory.cmi src/app/devices/types/DeviceTypes.cmj src/app/devices/types/DeviceTypes.cmi src/app/devices/LaptopState.cmj src/app/devices/LaptopState.cmi src/app/devices/PowerManager.cmj src/app/devices/PowerManager.cmi

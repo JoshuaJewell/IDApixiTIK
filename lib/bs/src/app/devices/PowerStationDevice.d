@@ -1,0 +1,1 @@
+src/app/devices/PowerStationDevice.cmj : src/app/devices/types/DeviceTypes.cmj src/app/devices/types/DeviceTypes.cmi src/app/devices/common/DeviceWindow.cmj src/app/devices/common/DeviceWindow.cmi src/bindings/Pixi.cmj src/bindings/Pixi.cmi src/app/devices/PowerManager.cmj src/app/devices/PowerManager.cmi

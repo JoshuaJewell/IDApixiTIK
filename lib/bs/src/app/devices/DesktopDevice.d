@@ -1,0 +1,1 @@
+src/app/devices/DesktopDevice.cmj : src/app/devices/types/DeviceTypes.cmj src/app/devices/types/DeviceTypes.cmi src/app/devices/common/DeviceWindow.cmj src/app/devices/common/DeviceWindow.cmi src/app/devices/LaptopGUI.cmj src/app/devices/LaptopGUI.cmi src/app/devices/LaptopState.cmj src/app/devices/LaptopState.cmi src/bindings/Pixi.cmj src/bindings/Pixi.cmi

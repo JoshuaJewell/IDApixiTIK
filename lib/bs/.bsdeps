@@ -1,0 +1,25 @@
+11.1.4
+/home/joshua/Documents/repos/IDApixiTIK
+0
+0
+rescript.json	0x1.a4d7c1106ac76p+30
+src	0x1.a4e766ed89596p+30
+src/bindings	0x1.a4e78e35790ffp+30
+src/engine	0x1.a4e766ecb45b7p+30
+src/engine/utils	0x1.a4e766ec626ffp+30
+src/engine/resize	0x1.a4e766ec5a3ecp+30
+src/engine/navigation	0x1.a4e766ec97af6p+30
+src/engine/audio	0x1.a4e766ec6eb9ap+30
+src/app	0x1.a4e766ecc4bdcp+30
+src/app/world	0x1.a4dd5b8f50b26p+30
+src/app/player	0x1.a4e766ecb042ep+30
+src/app/devices	0x1.a4e7a54f0e9f9p+30
+src/app/devices/types	0x1.a4e773707f23ep+30
+src/app/devices/common	0x1.a4e766ec9396dp+30
+src/app/utils	0x1.a4e766ecd5201p+30
+src/app/ui	0x1.a4e766ecd938ap+30
+src/app/screens	0x1.a4e79eeaac4dcp+30
+src/app/screens/main	0x1.a4e766ed70c5fp+30
+src/app/popups	0x1.a4e79e118d94ep+30
+===
+/home/joshua/Documents/repos/IDApixiTIK/node_modules/rescript/linux/rescript.exe	0x1.a4d7c0d4a006bp+30

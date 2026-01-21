@@ -1,0 +1,1 @@
+src/app/devices/LaptopGUI.cmj : src/app/devices/LaptopState.cmj src/app/devices/LaptopState.cmi src/bindings/Pixi.cmj src/bindings/Pixi.cmi src/bindings/PixiUI.cmj src/bindings/PixiUI.cmi src/app/devices/PowerManager.cmj src/app/devices/PowerManager.cmi

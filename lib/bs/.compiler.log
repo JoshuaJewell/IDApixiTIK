@@ -1,0 +1,50 @@
+#Start(1765402969118)
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/player/TrajectoryPreview.res:66:3-13
+
+  64 │   ~gravity: float,
+  65 │   ~groundY: float,
+  66 │   ~attributes: PlayerAttributes.t,
+  67 │ ): unit => {
+  68 │   // Clear previous trajectory
+
+  unused variable attributes.
+
+
+  Warning number 26
+  /home/joshua/Documents/repos/IDApixiTIK/src/engine/Engine.res:68:7-12
+
+  66 ┆ let height = Pixi.innerHeight(Pixi.window)
+  67 ┆ 
+  68 ┆ let result = Resize.resize(
+  69 ┆   ~w=Int.toFloat(width),
+  70 ┆   ~h=Int.toFloat(height),
+
+  unused variable result.
+
+
+  Warning number 33
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/ui/Button.res:3:1-9
+
+  1 │ // Button component for ReScript
+  2 │ 
+  3 │ open Pixi
+  4 │ open PixiUI
+  5 │ 
+
+  unused open Pixi.
+
+
+  Warning number 44
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/popups/SettingsPopup.res:4:1-11
+
+  2 │ 
+  3 │ open Pixi
+  4 │ open PixiUI
+  5 │ 
+  6 │ // App version (will be defined via Vite)
+
+  this open statement shadows the module identifier List (which is later used)
+
+#Done(1765402969216)

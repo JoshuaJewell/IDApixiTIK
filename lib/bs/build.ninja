@@ -1,0 +1,164 @@
+rescript = 1
+g_finger := /home/joshua/Documents/repos/IDApixiTIK/node_modules/@rescript/core/lib/ocaml/install.stamp
+rule astj
+  command = /home/joshua/Documents/repos/IDApixiTIK/node_modules/rescript/linux/bsc.exe  -bs-v 11.1.4 -uncurried -open RescriptCore -absname -bs-ast -o $out $i
+o src/Main.ast : astj ../../src/Main.res
+rule deps
+  command = /home/joshua/Documents/repos/IDApixiTIK/node_modules/rescript/linux/bsb_helper.exe -hash 122c06e182f2e47b7814e56b4b382099 $in
+  restat = 1
+o src/Main.d : deps src/Main.ast
+rule mij
+  command = /home/joshua/Documents/repos/IDApixiTIK/node_modules/rescript/linux/bsc.exe -I src/app/popups -I src/app/screens/main -I src/app/screens -I src/app/ui -I src/app/utils -I src/app/devices/common -I src/app/devices/types -I src/app/devices -I src/app/player -I src/app/world -I src/app -I src/engine/audio -I src/engine/navigation -I src/engine/resize -I src/engine/utils -I src/engine -I src/bindings -I src -I /home/joshua/Documents/repos/IDApixiTIK/node_modules/@rescript/core/lib/ocaml -open RescriptCore  -uncurried -bs-package-name idaptik -bs-package-output esmodule:$in_d:.res.mjs -bs-v $g_finger $i
+  dyndep = 1
+  restat = 1
+o src/Main.cmj src/Main.cmi ../../src/Main.res.mjs : mij src/Main.ast
+o src/bindings/Pixi.ast : astj ../../src/bindings/Pixi.res
+o src/bindings/Pixi.d : deps src/bindings/Pixi.ast
+o src/bindings/Pixi.cmj src/bindings/Pixi.cmi ../../src/bindings/Pixi.res.mjs : mij src/bindings/Pixi.ast
+o src/bindings/Motion.ast : astj ../../src/bindings/Motion.res
+o src/bindings/Motion.d : deps src/bindings/Motion.ast
+o src/bindings/Motion.cmj src/bindings/Motion.cmi ../../src/bindings/Motion.res.mjs : mij src/bindings/Motion.ast
+o src/bindings/PixiUI.ast : astj ../../src/bindings/PixiUI.res
+o src/bindings/PixiUI.d : deps src/bindings/PixiUI.ast
+o src/bindings/PixiUI.cmj src/bindings/PixiUI.cmi ../../src/bindings/PixiUI.res.mjs : mij src/bindings/PixiUI.ast
+o src/bindings/PixiSound.ast : astj ../../src/bindings/PixiSound.res
+o src/bindings/PixiSound.d : deps src/bindings/PixiSound.ast
+o src/bindings/PixiSound.cmj src/bindings/PixiSound.cmi ../../src/bindings/PixiSound.res.mjs : mij src/bindings/PixiSound.ast
+o src/engine/Engine.ast : astj ../../src/engine/Engine.res
+o src/engine/Engine.d : deps src/engine/Engine.ast
+o src/engine/Engine.cmj src/engine/Engine.cmi ../../src/engine/Engine.res.mjs : mij src/engine/Engine.ast
+o src/engine/utils/Maths.ast : astj ../../src/engine/utils/Maths.res
+o src/engine/utils/Maths.d : deps src/engine/utils/Maths.ast
+o src/engine/utils/Maths.cmj src/engine/utils/Maths.cmi ../../src/engine/utils/Maths.res.mjs : mij src/engine/utils/Maths.ast
+o src/engine/utils/Random.ast : astj ../../src/engine/utils/Random.res
+o src/engine/utils/Random.d : deps src/engine/utils/Random.ast
+o src/engine/utils/Random.cmj src/engine/utils/Random.cmi ../../src/engine/utils/Random.res.mjs : mij src/engine/utils/Random.ast
+o src/engine/utils/Storage.ast : astj ../../src/engine/utils/Storage.res
+o src/engine/utils/Storage.d : deps src/engine/utils/Storage.ast
+o src/engine/utils/Storage.cmj src/engine/utils/Storage.cmi ../../src/engine/utils/Storage.res.mjs : mij src/engine/utils/Storage.ast
+o src/engine/utils/WaitFor.ast : astj ../../src/engine/utils/WaitFor.res
+o src/engine/utils/WaitFor.d : deps src/engine/utils/WaitFor.ast
+o src/engine/utils/WaitFor.cmj src/engine/utils/WaitFor.cmi ../../src/engine/utils/WaitFor.res.mjs : mij src/engine/utils/WaitFor.ast
+o src/engine/utils/GetResolution.ast : astj ../../src/engine/utils/GetResolution.res
+o src/engine/utils/GetResolution.d : deps src/engine/utils/GetResolution.ast
+o src/engine/utils/GetResolution.cmj src/engine/utils/GetResolution.cmi ../../src/engine/utils/GetResolution.res.mjs : mij src/engine/utils/GetResolution.ast
+o src/engine/resize/Resize.ast : astj ../../src/engine/resize/Resize.res
+o src/engine/resize/Resize.d : deps src/engine/resize/Resize.ast
+o src/engine/resize/Resize.cmj src/engine/resize/Resize.cmi ../../src/engine/resize/Resize.res.mjs : mij src/engine/resize/Resize.ast
+o src/engine/navigation/Navigation.ast : astj ../../src/engine/navigation/Navigation.res
+o src/engine/navigation/Navigation.d : deps src/engine/navigation/Navigation.ast
+o src/engine/navigation/Navigation.cmj src/engine/navigation/Navigation.cmi ../../src/engine/navigation/Navigation.res.mjs : mij src/engine/navigation/Navigation.ast
+o src/engine/audio/Audio.ast : astj ../../src/engine/audio/Audio.res
+o src/engine/audio/Audio.d : deps src/engine/audio/Audio.ast
+o src/engine/audio/Audio.cmj src/engine/audio/Audio.cmi ../../src/engine/audio/Audio.res.mjs : mij src/engine/audio/Audio.ast
+o src/app/GetEngine.ast : astj ../../src/app/GetEngine.res
+o src/app/GetEngine.d : deps src/app/GetEngine.ast
+o src/app/GetEngine.cmj src/app/GetEngine.cmi ../../src/app/GetEngine.res.mjs : mij src/app/GetEngine.ast
+o src/app/player/Player.ast : astj ../../src/app/player/Player.res
+o src/app/player/Player.d : deps src/app/player/Player.ast
+o src/app/player/Player.cmj src/app/player/Player.cmi ../../src/app/player/Player.res.mjs : mij src/app/player/Player.ast
+o src/app/player/PlayerState.ast : astj ../../src/app/player/PlayerState.res
+o src/app/player/PlayerState.d : deps src/app/player/PlayerState.ast
+o src/app/player/PlayerState.cmj src/app/player/PlayerState.cmi ../../src/app/player/PlayerState.res.mjs : mij src/app/player/PlayerState.ast
+o src/app/player/PlayerGraphics.ast : astj ../../src/app/player/PlayerGraphics.res
+o src/app/player/PlayerGraphics.d : deps src/app/player/PlayerGraphics.ast
+o src/app/player/PlayerGraphics.cmj src/app/player/PlayerGraphics.cmi ../../src/app/player/PlayerGraphics.res.mjs : mij src/app/player/PlayerGraphics.ast
+o src/app/player/PlayerAttributes.ast : astj ../../src/app/player/PlayerAttributes.res
+o src/app/player/PlayerAttributes.d : deps src/app/player/PlayerAttributes.ast
+o src/app/player/PlayerAttributes.cmj src/app/player/PlayerAttributes.cmi ../../src/app/player/PlayerAttributes.res.mjs : mij src/app/player/PlayerAttributes.ast
+o src/app/player/TrajectoryPreview.ast : astj ../../src/app/player/TrajectoryPreview.res
+o src/app/player/TrajectoryPreview.d : deps src/app/player/TrajectoryPreview.ast
+o src/app/player/TrajectoryPreview.cmj src/app/player/TrajectoryPreview.cmi ../../src/app/player/TrajectoryPreview.res.mjs : mij src/app/player/TrajectoryPreview.ast
+o src/app/devices/Terminal.ast : astj ../../src/app/devices/Terminal.res
+o src/app/devices/Terminal.d : deps src/app/devices/Terminal.ast
+o src/app/devices/Terminal.cmj src/app/devices/Terminal.cmi ../../src/app/devices/Terminal.res.mjs : mij src/app/devices/Terminal.ast
+o src/app/devices/LaptopGUI.ast : astj ../../src/app/devices/LaptopGUI.res
+o src/app/devices/LaptopGUI.d : deps src/app/devices/LaptopGUI.ast
+o src/app/devices/LaptopGUI.cmj src/app/devices/LaptopGUI.cmi ../../src/app/devices/LaptopGUI.res.mjs : mij src/app/devices/LaptopGUI.ast
+o src/app/devices/UPSDevice.ast : astj ../../src/app/devices/UPSDevice.res
+o src/app/devices/UPSDevice.d : deps src/app/devices/UPSDevice.ast
+o src/app/devices/UPSDevice.cmj src/app/devices/UPSDevice.cmi ../../src/app/devices/UPSDevice.res.mjs : mij src/app/devices/UPSDevice.ast
+o src/app/devices/CameraFeed.ast : astj ../../src/app/devices/CameraFeed.res
+o src/app/devices/CameraFeed.d : deps src/app/devices/CameraFeed.ast
+o src/app/devices/CameraFeed.cmj src/app/devices/CameraFeed.cmi ../../src/app/devices/CameraFeed.res.mjs : mij src/app/devices/CameraFeed.ast
+o src/app/devices/LaptopState.ast : astj ../../src/app/devices/LaptopState.res
+o src/app/devices/LaptopState.d : deps src/app/devices/LaptopState.ast
+o src/app/devices/LaptopState.cmj src/app/devices/LaptopState.cmi ../../src/app/devices/LaptopState.res.mjs : mij src/app/devices/LaptopState.ast
+o src/app/devices/CameraDevice.ast : astj ../../src/app/devices/CameraDevice.res
+o src/app/devices/CameraDevice.d : deps src/app/devices/CameraDevice.ast
+o src/app/devices/CameraDevice.cmj src/app/devices/CameraDevice.cmi ../../src/app/devices/CameraDevice.res.mjs : mij src/app/devices/CameraDevice.ast
+o src/app/devices/PowerManager.ast : astj ../../src/app/devices/PowerManager.res
+o src/app/devices/PowerManager.d : deps src/app/devices/PowerManager.ast
+o src/app/devices/PowerManager.cmj src/app/devices/PowerManager.cmi ../../src/app/devices/PowerManager.res.mjs : mij src/app/devices/PowerManager.ast
+o src/app/devices/RouterDevice.ast : astj ../../src/app/devices/RouterDevice.res
+o src/app/devices/RouterDevice.d : deps src/app/devices/RouterDevice.ast
+o src/app/devices/RouterDevice.cmj src/app/devices/RouterDevice.cmi ../../src/app/devices/RouterDevice.res.mjs : mij src/app/devices/RouterDevice.ast
+o src/app/devices/ServerDevice.ast : astj ../../src/app/devices/ServerDevice.res
+o src/app/devices/ServerDevice.d : deps src/app/devices/ServerDevice.ast
+o src/app/devices/ServerDevice.cmj src/app/devices/ServerDevice.cmi ../../src/app/devices/ServerDevice.res.mjs : mij src/app/devices/ServerDevice.ast
+o src/app/devices/DesktopDevice.ast : astj ../../src/app/devices/DesktopDevice.res
+o src/app/devices/DesktopDevice.d : deps src/app/devices/DesktopDevice.ast
+o src/app/devices/DesktopDevice.cmj src/app/devices/DesktopDevice.cmi ../../src/app/devices/DesktopDevice.res.mjs : mij src/app/devices/DesktopDevice.ast
+o src/app/devices/DeviceFactory.ast : astj ../../src/app/devices/DeviceFactory.res
+o src/app/devices/DeviceFactory.d : deps src/app/devices/DeviceFactory.ast
+o src/app/devices/DeviceFactory.cmj src/app/devices/DeviceFactory.cmi ../../src/app/devices/DeviceFactory.res.mjs : mij src/app/devices/DeviceFactory.ast
+o src/app/devices/NetworkManager.ast : astj ../../src/app/devices/NetworkManager.res
+o src/app/devices/NetworkManager.d : deps src/app/devices/NetworkManager.ast
+o src/app/devices/NetworkManager.cmj src/app/devices/NetworkManager.cmi ../../src/app/devices/NetworkManager.res.mjs : mij src/app/devices/NetworkManager.ast
+o src/app/devices/TerminalDevice.ast : astj ../../src/app/devices/TerminalDevice.res
+o src/app/devices/TerminalDevice.d : deps src/app/devices/TerminalDevice.ast
+o src/app/devices/TerminalDevice.cmj src/app/devices/TerminalDevice.cmi ../../src/app/devices/TerminalDevice.res.mjs : mij src/app/devices/TerminalDevice.ast
+o src/app/devices/PowerStationDevice.ast : astj ../../src/app/devices/PowerStationDevice.res
+o src/app/devices/PowerStationDevice.d : deps src/app/devices/PowerStationDevice.ast
+o src/app/devices/PowerStationDevice.cmj src/app/devices/PowerStationDevice.cmi ../../src/app/devices/PowerStationDevice.res.mjs : mij src/app/devices/PowerStationDevice.ast
+o src/app/devices/GlobalNetworkManager.ast : astj ../../src/app/devices/GlobalNetworkManager.res
+o src/app/devices/GlobalNetworkManager.d : deps src/app/devices/GlobalNetworkManager.ast
+o src/app/devices/GlobalNetworkManager.cmj src/app/devices/GlobalNetworkManager.cmi ../../src/app/devices/GlobalNetworkManager.res.mjs : mij src/app/devices/GlobalNetworkManager.ast
+o src/app/devices/types/DeviceTypes.ast : astj ../../src/app/devices/types/DeviceTypes.res
+o src/app/devices/types/DeviceTypes.d : deps src/app/devices/types/DeviceTypes.ast
+o src/app/devices/types/DeviceTypes.cmj src/app/devices/types/DeviceTypes.cmi ../../src/app/devices/types/DeviceTypes.res.mjs : mij src/app/devices/types/DeviceTypes.ast
+o src/app/devices/common/DeviceWindow.ast : astj ../../src/app/devices/common/DeviceWindow.res
+o src/app/devices/common/DeviceWindow.d : deps src/app/devices/common/DeviceWindow.ast
+o src/app/devices/common/DeviceWindow.cmj src/app/devices/common/DeviceWindow.cmi ../../src/app/devices/common/DeviceWindow.res.mjs : mij src/app/devices/common/DeviceWindow.ast
+o src/app/utils/UserSettings.ast : astj ../../src/app/utils/UserSettings.res
+o src/app/utils/UserSettings.d : deps src/app/utils/UserSettings.ast
+o src/app/utils/UserSettings.cmj src/app/utils/UserSettings.cmi ../../src/app/utils/UserSettings.res.mjs : mij src/app/utils/UserSettings.ast
+o src/app/ui/Label.ast : astj ../../src/app/ui/Label.res
+o src/app/ui/Label.d : deps src/app/ui/Label.ast
+o src/app/ui/Label.cmj src/app/ui/Label.cmi ../../src/app/ui/Label.res.mjs : mij src/app/ui/Label.ast
+o src/app/ui/Button.ast : astj ../../src/app/ui/Button.res
+o src/app/ui/Button.d : deps src/app/ui/Button.ast
+o src/app/ui/Button.cmj src/app/ui/Button.cmi ../../src/app/ui/Button.res.mjs : mij src/app/ui/Button.ast
+o src/app/ui/RoundedBox.ast : astj ../../src/app/ui/RoundedBox.res
+o src/app/ui/RoundedBox.d : deps src/app/ui/RoundedBox.ast
+o src/app/ui/RoundedBox.cmj src/app/ui/RoundedBox.cmi ../../src/app/ui/RoundedBox.res.mjs : mij src/app/ui/RoundedBox.ast
+o src/app/ui/VolumeSlider.ast : astj ../../src/app/ui/VolumeSlider.res
+o src/app/ui/VolumeSlider.d : deps src/app/ui/VolumeSlider.ast
+o src/app/ui/VolumeSlider.cmj src/app/ui/VolumeSlider.cmi ../../src/app/ui/VolumeSlider.res.mjs : mij src/app/ui/VolumeSlider.ast
+o src/app/screens/LoadScreen.ast : astj ../../src/app/screens/LoadScreen.res
+o src/app/screens/LoadScreen.d : deps src/app/screens/LoadScreen.ast
+o src/app/screens/LoadScreen.cmj src/app/screens/LoadScreen.cmi ../../src/app/screens/LoadScreen.res.mjs : mij src/app/screens/LoadScreen.ast
+o src/app/screens/WorldScreen.ast : astj ../../src/app/screens/WorldScreen.res
+o src/app/screens/WorldScreen.d : deps src/app/screens/WorldScreen.ast
+o src/app/screens/WorldScreen.cmj src/app/screens/WorldScreen.cmi ../../src/app/screens/WorldScreen.res.mjs : mij src/app/screens/WorldScreen.ast
+o src/app/screens/main/Logo.ast : astj ../../src/app/screens/main/Logo.res
+o src/app/screens/main/Logo.d : deps src/app/screens/main/Logo.ast
+o src/app/screens/main/Logo.cmj src/app/screens/main/Logo.cmi ../../src/app/screens/main/Logo.res.mjs : mij src/app/screens/main/Logo.ast
+o src/app/screens/main/Bouncer.ast : astj ../../src/app/screens/main/Bouncer.res
+o src/app/screens/main/Bouncer.d : deps src/app/screens/main/Bouncer.ast
+o src/app/screens/main/Bouncer.cmj src/app/screens/main/Bouncer.cmi ../../src/app/screens/main/Bouncer.res.mjs : mij src/app/screens/main/Bouncer.ast
+o src/app/screens/main/MainScreen.ast : astj ../../src/app/screens/main/MainScreen.res
+o src/app/screens/main/MainScreen.d : deps src/app/screens/main/MainScreen.ast
+o src/app/screens/main/MainScreen.cmj src/app/screens/main/MainScreen.cmi ../../src/app/screens/main/MainScreen.res.mjs : mij src/app/screens/main/MainScreen.ast
+o src/app/popups/PowerView.ast : astj ../../src/app/popups/PowerView.res
+o src/app/popups/PowerView.d : deps src/app/popups/PowerView.ast
+o src/app/popups/PowerView.cmj src/app/popups/PowerView.cmi ../../src/app/popups/PowerView.res.mjs : mij src/app/popups/PowerView.ast
+o src/app/popups/PausePopup.ast : astj ../../src/app/popups/PausePopup.res
+o src/app/popups/PausePopup.d : deps src/app/popups/PausePopup.ast
+o src/app/popups/PausePopup.cmj src/app/popups/PausePopup.cmi ../../src/app/popups/PausePopup.res.mjs : mij src/app/popups/PausePopup.ast
+o src/app/popups/SettingsPopup.ast : astj ../../src/app/popups/SettingsPopup.res
+o src/app/popups/SettingsPopup.d : deps src/app/popups/SettingsPopup.ast
+o src/app/popups/SettingsPopup.cmj src/app/popups/SettingsPopup.cmi ../../src/app/popups/SettingsPopup.res.mjs : mij src/app/popups/SettingsPopup.ast
+o src/app/popups/NetworkDesktop.ast : astj ../../src/app/popups/NetworkDesktop.res
+o src/app/popups/NetworkDesktop.d : deps src/app/popups/NetworkDesktop.ast
+o src/app/popups/NetworkDesktop.cmj src/app/popups/NetworkDesktop.cmi ../../src/app/popups/NetworkDesktop.res.mjs : mij src/app/popups/NetworkDesktop.ast
