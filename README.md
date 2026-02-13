@@ -1,7 +1,3 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Project Overview
 
 IDApixiTIK is a browser-based hacking/network simulator game built with ReScript and PixiJS. It combines platformer gameplay with realistic network simulation, where players interact with devices (laptops, routers, servers, cameras) and use terminal/SSH mechanics to navigate networks.
