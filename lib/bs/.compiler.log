@@ -1,15 +1,15 @@
-#Start(1765402969118)
+#Start(1771085935693)
 
-  Warning number 27
-  /home/joshua/Documents/repos/IDApixiTIK/src/app/player/TrajectoryPreview.res:66:3-13
+  Warning number 26
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/devices/SystemLogs.res:17:7-10
 
-  64 │   ~gravity: float,
-  65 │   ~groundY: float,
-  66 │   ~attributes: PlayerAttributes.t,
-  67 │ ): unit => {
-  68 │   // Clear previous trajectory
+  15 │ 
+  16 │ let formatTime = (): string => {
+  17 │   let date = %raw(`new Date()`)
+  18 │   let hours = %raw(`date.getHours().toString().padStart(2, '0')`)
+  19 │   let minutes = %raw(`date.getMinutes().toString().padStart(2, '0')`)
 
-  unused variable attributes.
+  unused variable date.
 
 
   Warning number 26
@@ -24,6 +24,18 @@
   unused variable result.
 
 
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/player/TrajectoryPreview.res:66:3-13
+
+  64 │   ~gravity: float,
+  65 │   ~groundY: float,
+  66 │   ~attributes: PlayerAttributes.t,
+  67 │ ): unit => {
+  68 │   // Clear previous trajectory
+
+  unused variable attributes.
+
+
   Warning number 33
   /home/joshua/Documents/repos/IDApixiTIK/src/app/ui/Button.res:3:1-9
 
@@ -34,6 +46,61 @@
   5 │ 
 
   unused open Pixi.
+
+
+  Warning number 26
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/devices/ServerDevice.res:92:7-15
+
+  90 ┆ let headerStyle = {"fontFamily": "Arial", "fontSize": 12, "fill": 0xbb8
+     ┆ 6fc, "fontWeight": "bold"}
+  91 ┆ let labelStyle = {"fontFamily": "Arial", "fontSize": 10, "fill": 0xdddd
+     ┆ dd}
+  92 ┆ let dataStyle = {"fontFamily": "monospace", "fontSize": 10, "fill": 0xa
+     ┆ aaaaa}
+  93 ┆ 
+  94 ┆ // ============================================
+
+  unused variable dataStyle.
+
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/screens/WorldMapScreen.res:42:66-70
+
+  40 ┆ 
+  41 ┆ // Create location markers (clickable buttons)
+  42 ┆ let locationButtons = Array.mapWithIndex(locations, (location, index) =
+     ┆ > {
+  43 ┆   let buttonContainer = Container.make()
+  44 ┆   Container.setEventMode(buttonContainer, "static")
+
+  unused variable index.
+
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/screens/WorldMapScreen.res:145:26-31
+
+  143 ┆ reset: None,
+  144 ┆ update: None,
+  145 ┆ resize: Some((width, height) => {
+  146 ┆   // Position title
+  147 ┆   Text.setX(titleText, width *. 0.5)
+
+  unused variable height.
+
+
+  Warning number 26
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/devices/RouterDevice.res:87:7-15
+
+  85 ┆ let headerStyle = {"fontFamily": "Arial", "fontSize": 14, "fill": 0xfff
+     ┆ fff, "fontWeight": "bold"}
+  86 ┆ let labelStyle = {"fontFamily": "Arial", "fontSize": 12, "fill": 0xdddd
+     ┆ dd}
+  87 ┆ let dataStyle = {"fontFamily": "monospace", "fontSize": 10, "fill": 0xa
+     ┆ aaaaa}
+  88 ┆ 
+  89 ┆ // Traffic simulation state
+
+  unused variable dataStyle.
 
 
   Warning number 44
@@ -47,4 +114,475 @@
 
   this open statement shadows the module identifier List (which is later used)
 
-#Done(1765402969216)
+
+  Warning number 26
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/devices/LaptopGUI.res:1387:11-20
+
+  1385 ┆ let nexusDevices = ref([])
+  1386 ┆ let devhubDevices = ref([])
+  1387 ┆ let webDevices = ref([])
+  1388 ┆ 
+  1389 ┆ Array.forEach(devices, device => {
+
+  unused variable webDevices.
+
+
+  Warning number 26
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/devices/LaptopGUI.res:1429:11-21
+
+  1427 ┆ 
+  1428 ┆ // Update groups with actual devices
+  1429 ┆ let finalGroups = [
+  1430 ┆   {...Array.getUnsafe(groups, 0), devices: lanDevices.contents},
+  1431 ┆   {...Array.getUnsafe(groups, 1), devices: dmzDevices.contents},
+
+  unused variable finalGroups.
+
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/devices/LaptopGUI.res:1548:49-50
+
+  1546 ┆   )
+  1547 ┆ )
+  1548 ┆ Array.forEachWithIndex(downtownDevices, ((ip, name, _deviceType), i) 
+       ┆ => {
+  1549 ┆   let angle = Int.toFloat(i) *. (6.28 /. Int.toFloat(Array.length(dow
+       ┆ ntownDevices)))
+  1550 ┆   let dx = edgeX +. deviceRadius *. cos(angle)
+
+  unused variable ip.
+
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/devices/LaptopGUI.res:1548:53-56
+
+  1546 ┆   )
+  1547 ┆ )
+  1548 ┆ Array.forEachWithIndex(downtownDevices, ((ip, name, _deviceType), i) 
+       ┆ => {
+  1549 ┆   let angle = Int.toFloat(i) *. (6.28 /. Int.toFloat(Array.length(dow
+       ┆ ntownDevices)))
+  1550 ┆   let dx = edgeX +. deviceRadius *. cos(angle)
+
+  unused variable name.
+
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/devices/LaptopGUI.res:1563:55-56
+
+  1561 ┆ 
+  1562 ┆ // Rural devices
+  1563 ┆ Array.forEachWithIndex(ruralDevices.contents, ((ip, name, _deviceType
+       ┆ ), i) => {
+  1564 ┆   let dx = edgeX +. 30.0
+  1565 ┆   let dy = ruralRouterY +. 25.0 +. Int.toFloat(i) *. 12.0
+
+  unused variable ip.
+
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/devices/LaptopGUI.res:1563:59-62
+
+  1561 ┆ 
+  1562 ┆ // Rural devices
+  1563 ┆ Array.forEachWithIndex(ruralDevices.contents, ((ip, name, _deviceType
+       ┆ ), i) => {
+  1564 ┆   let dx = edgeX +. 30.0
+  1565 ┆   let dy = ruralRouterY +. 25.0 +. Int.toFloat(i) *. 12.0
+
+  unused variable name.
+
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/devices/LaptopGUI.res:1580:55-56
+
+  1578 ┆ 
+  1579 ┆ // Atlas devices
+  1580 ┆ Array.forEachWithIndex(atlasDevices.contents, ((ip, name, _deviceType
+       ┆ ), i) => {
+  1581 ┆   let dx = serviceX +. serviceDeviceOffset
+  1582 ┆   let dy = atlasY -. 10.0 +. Int.toFloat(i) *. 12.0
+
+  unused variable ip.
+
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/devices/LaptopGUI.res:1580:59-62
+
+  1578 ┆ 
+  1579 ┆ // Atlas devices
+  1580 ┆ Array.forEachWithIndex(atlasDevices.contents, ((ip, name, _deviceType
+       ┆ ), i) => {
+  1581 ┆   let dx = serviceX +. serviceDeviceOffset
+  1582 ┆   let dy = atlasY -. 10.0 +. Int.toFloat(i) *. 12.0
+
+  unused variable name.
+
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/devices/LaptopGUI.res:1594:55-56
+
+  1592 ┆ 
+  1593 ┆ // Nexus devices
+  1594 ┆ Array.forEachWithIndex(nexusDevices.contents, ((ip, name, _deviceType
+       ┆ ), i) => {
+  1595 ┆   let dx = serviceX +. serviceDeviceOffset
+  1596 ┆   let dy = nexusY -. 10.0 +. Int.toFloat(i) *. 12.0
+
+  unused variable ip.
+
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/devices/LaptopGUI.res:1594:59-62
+
+  1592 ┆ 
+  1593 ┆ // Nexus devices
+  1594 ┆ Array.forEachWithIndex(nexusDevices.contents, ((ip, name, _deviceType
+       ┆ ), i) => {
+  1595 ┆   let dx = serviceX +. serviceDeviceOffset
+  1596 ┆   let dy = nexusY -. 10.0 +. Int.toFloat(i) *. 12.0
+
+  unused variable name.
+
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/devices/LaptopGUI.res:1608:56-57
+
+  1606 ┆ 
+  1607 ┆ // DevHub devices
+  1608 ┆ Array.forEachWithIndex(devhubDevices.contents, ((ip, name, _deviceTyp
+       ┆ e), i) => {
+  1609 ┆   let dx = serviceX +. serviceDeviceOffset
+  1610 ┆   let dy = devhubY -. 10.0 +. Int.toFloat(i) *. 12.0
+
+  unused variable ip.
+
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/devices/LaptopGUI.res:1608:60-63
+
+  1606 ┆ 
+  1607 ┆ // DevHub devices
+  1608 ┆ Array.forEachWithIndex(devhubDevices.contents, ((ip, name, _deviceTyp
+       ┆ e), i) => {
+  1609 ┆   let dx = serviceX +. serviceDeviceOffset
+  1610 ┆   let dy = devhubY -. 10.0 +. Int.toFloat(i) *. 12.0
+
+  unused variable name.
+
+
+  Warning number 21
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/popups/NetworkDesktop.res:934:12-76
+
+  932 ┆ // Store in ref for use by event handlers
+  933 ┆ totalRingHeightRef := totalRingHeight
+  934 ┆ %raw(`console.log("Total ring height calculated: " + totalRingHeight)`
+      ┆ )
+  935 ┆ 
+  936 ┆ // Center the entire ring vertically
+
+  this statement never returns (or has an unsound type.)
+
+
+  Warning number 21
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/popups/NetworkDesktop.res:1427:18-124
+
+  1425 ┆ let wrappedY = if newY > scaledRingHeight {
+  1426 ┆   let wrapped = newY -. scaledRingHeight
+  1427 ┆   %raw(`console.log("ZOOM WRAP DOWN: newY=" + newY + " -> " + wrapped
+       ┆  + " (ringHeight=" + scaledRingHeight + ")")`)
+  1428 ┆   wrapped
+  1429 ┆ } else if newY < -.scaledRingHeight {
+
+  this statement never returns (or has an unsound type.)
+
+
+  Warning number 21
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/popups/NetworkDesktop.res:1431:18-122
+
+  1429 ┆ } else if newY < -.scaledRingHeight {
+  1430 ┆   let wrapped = newY +. scaledRingHeight
+  1431 ┆   %raw(`console.log("ZOOM WRAP UP: newY=" + newY + " -> " + wrapped +
+       ┆  " (ringHeight=" + scaledRingHeight + ")")`)
+  1432 ┆   wrapped
+  1433 ┆ } else {
+
+  this statement never returns (or has an unsound type.)
+
+
+  Warning number 21
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/popups/NetworkDesktop.res:1475:18-169
+
+  1473 ┆   let wrapped = newY -. scaledRingHeight
+  1474 ┆   dragStartY := dragStartY.contents +. scaledRingHeight
+  1475 ┆   %raw(`console.log("PAN WRAP DOWN: newY=" + newY + " -> " + (newY - 
+       ┆ scaledRingHeight) + " (ringHeight=" + scaledRingHeight + ", scale=" +
+       ┆  currentScale + ")")`)
+  1476 ┆   wrapped
+  1477 ┆ } else if newY < -.scaledRingHeight {
+
+  this statement never returns (or has an unsound type.)
+
+
+  Warning number 21
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/popups/NetworkDesktop.res:1481:18-167
+
+  1479 ┆   let wrapped = newY +. scaledRingHeight
+  1480 ┆   dragStartY := dragStartY.contents -. scaledRingHeight
+  1481 ┆   %raw(`console.log("PAN WRAP UP: newY=" + newY + " -> " + (newY + sc
+       ┆ aledRingHeight) + " (ringHeight=" + scaledRingHeight + ", scale=" + c
+       ┆ urrentScale + ")")`)
+  1482 ┆   wrapped
+  1483 ┆ } else {
+
+  this statement never returns (or has an unsound type.)
+
+
+  Warning number 26
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/popups/NetworkDesktop.res:662:11-22
+
+  660 ┆ let iconCenterX = iconWidth /. 2.0
+  661 ┆ let iconCenterY = iconHeight /. 2.0
+  662 ┆ let iconSpacingX = 110.0
+  663 ┆ let iconSpacingY = 130.0
+  664 ┆ 
+
+  unused variable iconSpacingX.
+
+
+  Warning number 26
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/popups/NetworkDesktop.res:663:11-22
+
+  661 ┆ let iconCenterY = iconHeight /. 2.0
+  662 ┆ let iconSpacingX = 110.0
+  663 ┆ let iconSpacingY = 130.0
+  664 ┆ 
+  665 ┆ // Helper to draw a curved line between two points to avoid overlaps
+
+  unused variable iconSpacingY.
+
+
+  Warning number 26
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/popups/NetworkDesktop.res:861:11-23
+
+  859 ┆ // Spacing adapts to each backbone's subnet sizes
+  860 ┆ 
+  861 ┆ let backboneCount = Array.length(backboneIPs)
+  862 ┆ 
+  863 ┆ // Filter out ring edges for tree building (avoid circular dependencie
+      ┆ s)
+
+  unused variable backboneCount.
+
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/popups/NetworkDesktop.res:1392:40-42
+
+  1390 ┆ 
+  1391 ┆ // Mouse wheel zoom (zooms toward cursor position)
+  1392 ┆ Graphics.on(desktopBg, "wheel", (evt: 'a) => {
+  1393 ┆   let deltaY: float = %raw(`evt.deltaY`)
+  1394 ┆   let zoomFactor = if deltaY < 0.0 { 1.1 } else { 0.9 }
+
+  unused variable evt.
+
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/popups/NetworkDesktop.res:1445:46-48
+
+  1443 ┆ 
+  1444 ┆ // Pan with mouse drag
+  1445 ┆ Graphics.on(desktopBg, "pointerdown", (evt: 'a) => {
+  1446 ┆   isDragging := true
+  1447 ┆   dragStartX := %raw(`evt.global.x`) -. Container.x(topologyContainer
+       ┆ )
+
+  unused variable evt.
+
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/popups/NetworkDesktop.res:1459:46-48
+
+  1457 ┆ })
+  1458 ┆ 
+  1459 ┆ Graphics.on(desktopBg, "pointermove", (evt: 'a) => {
+  1460 ┆   if isDragging.contents {
+  1461 ┆     let globalX: float = %raw(`evt.global.x`)
+
+  unused variable evt.
+
+
+  Warning number 21
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/screens/WorldBuilder.res:838:12-56
+
+  836 ┆ `)()
+  837 ┆ escKeyHandler := Some(handler)
+  838 ┆ %raw(`window.addEventListener('keydown', handler)`)
+  839 ┆ 
+  840 ┆ await Motion.animateAsync(container, {"alpha": 1.0}, {duration: 0.5, e
+      ┆ ase: "easeOut"})
+
+  this statement never returns (or has an unsound type.)
+
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/screens/WorldBuilder.res:845:14-20
+
+  843 ┆ // Remove ESC key listener
+  844 ┆ switch escKeyHandler.contents {
+  845 ┆ | Some(handler) => %raw(`window.removeEventListener('keydown', handler
+      ┆ )`)
+  846 ┆ | None => ()
+  847 ┆ }
+
+  unused variable handler.
+
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/screens/WorldBuilder.res:860:14-20
+
+  858 ┆ // Cleanup ESC key listener
+  859 ┆ switch escKeyHandler.contents {
+  860 ┆ | Some(handler) => %raw(`window.removeEventListener('keydown', handler
+      ┆ )`)
+  861 ┆ | None => ()
+  862 ┆ }
+
+  unused variable handler.
+
+
+  Warning number 27
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/screens/locations/LocationBase.res:7:60-66
+
+  5 │ // The onExit parameter is currently unused since WorldBuilder handles E
+    │ SC itself
+  6 │ // but kept for potential future use
+  7 │ let makeLocationScreen = (location: LocationData.location, ~onExit: unit
+    │  => unit): Navigation.appScreen => {
+  8 │   // Use WorldBuilder to create a full platformer scene for this locatio
+    │ n
+  9 │   WorldBuilder.buildLocationScreen(location)
+
+  unused variable onExit.
+
+
+  Warning number 33
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/screens/locations/BackboneScreen.res:3:1-9
+
+  1 │ // Backbone Screen - Internet Backbone location
+  2 │ 
+  3 │ open Pixi
+  4 │ 
+  5 │ // Asset bundles required by this screen
+
+  unused open Pixi.
+
+
+  Warning number 33
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/screens/locations/RegionalISPScreen.res:3:1-9
+
+  1 │ // Regional ISP Screen - Regional ISP location
+  2 │ 
+  3 │ open Pixi
+  4 │ 
+  5 │ // Asset bundles required by this screen
+
+  unused open Pixi.
+
+
+  Warning number 33
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/screens/locations/LabScreen.res:3:1-9
+
+  1 │ // Lab Screen - Research Facility location
+  2 │ 
+  3 │ open Pixi
+  4 │ 
+  5 │ // Asset bundles required by this screen
+
+  unused open Pixi.
+
+
+  Warning number 33
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/screens/locations/NexusScreen.res:3:1-9
+
+  1 │ // Nexus Screen - Nexus CDN location
+  2 │ 
+  3 │ open Pixi
+  4 │ 
+  5 │ // Asset bundles required by this screen
+
+  unused open Pixi.
+
+
+  Warning number 33
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/screens/locations/BusinessISPScreen.res:3:1-9
+
+  1 │ // Business ISP Screen - Business ISP location
+  2 │ 
+  3 │ open Pixi
+  4 │ 
+  5 │ // Asset bundles required by this screen
+
+  unused open Pixi.
+
+
+  Warning number 33
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/screens/locations/AtlasScreen.res:3:1-9
+
+  1 │ // Atlas Screen - Atlas Data Center location
+  2 │ 
+  3 │ open Pixi
+  4 │ 
+  5 │ // Asset bundles required by this screen
+
+  unused open Pixi.
+
+
+  Warning number 33
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/screens/locations/DevHubScreen.res:3:1-9
+
+  1 │ // DevHub Screen - DevHub Repository location
+  2 │ 
+  3 │ open Pixi
+  4 │ 
+  5 │ // Asset bundles required by this screen
+
+  unused open Pixi.
+
+
+  Warning number 33
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/screens/locations/RuralISPScreen.res:3:1-9
+
+  1 │ // Rural ISP Screen - Rural ISP location
+  2 │ 
+  3 │ open Pixi
+  4 │ 
+  5 │ // Asset bundles required by this screen
+
+  unused open Pixi.
+
+
+  Warning number 33
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/screens/locations/CityScreen.res:3:1-9
+
+  1 │ // City Screen - Downtown Office location
+  2 │ 
+  3 │ open Pixi
+  4 │ 
+  5 │ // Asset bundles required by this screen
+
+  unused open Pixi.
+
+
+  Warning number 33
+  /home/joshua/Documents/repos/IDApixiTIK/src/app/screens/locations/FieldScreen.res:3:1-9
+
+  1 │ // Field Screen - Rural Outpost location
+  2 │ 
+  3 │ open Pixi
+  4 │ 
+  5 │ // Asset bundles required by this screen
+
+  unused open Pixi.
+
+#Done(1771085935924)

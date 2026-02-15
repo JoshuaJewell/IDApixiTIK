@@ -12,7 +12,7 @@ The hacker controls access points, rewires electronics, and times disruptions wi
 
 Because if the infiltrator jumps too soon, or the hacker mistimes an override, things spiral fast. This isn't just about skill. It's about trust.
 
-And trust has consequences. And justice matters.
+And trust has consequences.
 
 ## Physical Presence Matters
 

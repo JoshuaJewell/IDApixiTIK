@@ -4,11 +4,11 @@ rule astj
   command = /home/joshua/Documents/repos/IDApixiTIK/node_modules/rescript/linux/bsc.exe  -bs-v 11.1.4 -uncurried -open RescriptCore -absname -bs-ast -o $out $i
 o src/Main.ast : astj ../../src/Main.res
 rule deps
-  command = /home/joshua/Documents/repos/IDApixiTIK/node_modules/rescript/linux/bsb_helper.exe -hash 122c06e182f2e47b7814e56b4b382099 $in
+  command = /home/joshua/Documents/repos/IDApixiTIK/node_modules/rescript/linux/bsb_helper.exe -hash 998cefeeea5934f4f8ce8af7c8835f83 $in
   restat = 1
 o src/Main.d : deps src/Main.ast
 rule mij
-  command = /home/joshua/Documents/repos/IDApixiTIK/node_modules/rescript/linux/bsc.exe -I src/app/popups -I src/app/screens/main -I src/app/screens -I src/app/ui -I src/app/utils -I src/app/devices/common -I src/app/devices/types -I src/app/devices -I src/app/player -I src/app/world -I src/app -I src/engine/audio -I src/engine/navigation -I src/engine/resize -I src/engine/utils -I src/engine -I src/bindings -I src -I /home/joshua/Documents/repos/IDApixiTIK/node_modules/@rescript/core/lib/ocaml -open RescriptCore  -uncurried -bs-package-name idaptik -bs-package-output esmodule:$in_d:.res.mjs -bs-v $g_finger $i
+  command = /home/joshua/Documents/repos/IDApixiTIK/node_modules/rescript/linux/bsc.exe -I src/app/popups -I src/app/screens/main -I src/app/screens/locations -I src/app/screens -I src/app/ui -I src/app/utils -I src/app/devices/common -I src/app/devices/types -I src/app/devices -I src/app/player -I src/app/world -I src/app -I src/engine/audio -I src/engine/navigation -I src/engine/resize -I src/engine/utils -I src/engine -I src/bindings -I src -I /home/joshua/Documents/repos/IDApixiTIK/node_modules/@rescript/core/lib/ocaml -open RescriptCore  -uncurried -bs-package-name idaptik -bs-package-output esmodule:$in_d:.res.mjs -bs-v $g_finger $i
   dyndep = 1
   restat = 1
 o src/Main.cmj src/Main.cmi ../../src/Main.res.mjs : mij src/Main.ast
@@ -81,12 +81,21 @@ o src/app/devices/UPSDevice.cmj src/app/devices/UPSDevice.cmi ../../src/app/devi
 o src/app/devices/CameraFeed.ast : astj ../../src/app/devices/CameraFeed.res
 o src/app/devices/CameraFeed.d : deps src/app/devices/CameraFeed.ast
 o src/app/devices/CameraFeed.cmj src/app/devices/CameraFeed.cmi ../../src/app/devices/CameraFeed.res.mjs : mij src/app/devices/CameraFeed.ast
+o src/app/devices/DeviceView.ast : astj ../../src/app/devices/DeviceView.res
+o src/app/devices/DeviceView.d : deps src/app/devices/DeviceView.ast
+o src/app/devices/DeviceView.cmj src/app/devices/DeviceView.cmi ../../src/app/devices/DeviceView.res.mjs : mij src/app/devices/DeviceView.ast
+o src/app/devices/SystemLogs.ast : astj ../../src/app/devices/SystemLogs.res
+o src/app/devices/SystemLogs.d : deps src/app/devices/SystemLogs.ast
+o src/app/devices/SystemLogs.cmj src/app/devices/SystemLogs.cmi ../../src/app/devices/SystemLogs.res.mjs : mij src/app/devices/SystemLogs.ast
 o src/app/devices/LaptopState.ast : astj ../../src/app/devices/LaptopState.res
 o src/app/devices/LaptopState.d : deps src/app/devices/LaptopState.ast
 o src/app/devices/LaptopState.cmj src/app/devices/LaptopState.cmi ../../src/app/devices/LaptopState.res.mjs : mij src/app/devices/LaptopState.ast
 o src/app/devices/CameraDevice.ast : astj ../../src/app/devices/CameraDevice.res
 o src/app/devices/CameraDevice.d : deps src/app/devices/CameraDevice.ast
 o src/app/devices/CameraDevice.cmj src/app/devices/CameraDevice.cmi ../../src/app/devices/CameraDevice.res.mjs : mij src/app/devices/CameraDevice.ast
+o src/app/devices/NetworkZones.ast : astj ../../src/app/devices/NetworkZones.res
+o src/app/devices/NetworkZones.d : deps src/app/devices/NetworkZones.ast
+o src/app/devices/NetworkZones.cmj src/app/devices/NetworkZones.cmi ../../src/app/devices/NetworkZones.res.mjs : mij src/app/devices/NetworkZones.ast
 o src/app/devices/PowerManager.ast : astj ../../src/app/devices/PowerManager.res
 o src/app/devices/PowerManager.d : deps src/app/devices/PowerManager.ast
 o src/app/devices/PowerManager.cmj src/app/devices/PowerManager.cmi ../../src/app/devices/PowerManager.res.mjs : mij src/app/devices/PowerManager.ast
@@ -102,12 +111,21 @@ o src/app/devices/DesktopDevice.cmj src/app/devices/DesktopDevice.cmi ../../src/
 o src/app/devices/DeviceFactory.ast : astj ../../src/app/devices/DeviceFactory.res
 o src/app/devices/DeviceFactory.d : deps src/app/devices/DeviceFactory.ast
 o src/app/devices/DeviceFactory.cmj src/app/devices/DeviceFactory.cmi ../../src/app/devices/DeviceFactory.res.mjs : mij src/app/devices/DeviceFactory.ast
+o src/app/devices/DeviceActivity.ast : astj ../../src/app/devices/DeviceActivity.res
+o src/app/devices/DeviceActivity.d : deps src/app/devices/DeviceActivity.ast
+o src/app/devices/DeviceActivity.cmj src/app/devices/DeviceActivity.cmi ../../src/app/devices/DeviceActivity.res.mjs : mij src/app/devices/DeviceActivity.ast
 o src/app/devices/NetworkManager.ast : astj ../../src/app/devices/NetworkManager.res
 o src/app/devices/NetworkManager.d : deps src/app/devices/NetworkManager.ast
 o src/app/devices/NetworkManager.cmj src/app/devices/NetworkManager.cmi ../../src/app/devices/NetworkManager.res.mjs : mij src/app/devices/NetworkManager.ast
 o src/app/devices/TerminalDevice.ast : astj ../../src/app/devices/TerminalDevice.res
 o src/app/devices/TerminalDevice.d : deps src/app/devices/TerminalDevice.ast
 o src/app/devices/TerminalDevice.cmj src/app/devices/TerminalDevice.cmi ../../src/app/devices/TerminalDevice.res.mjs : mij src/app/devices/TerminalDevice.ast
+o src/app/devices/NetworkTransfer.ast : astj ../../src/app/devices/NetworkTransfer.res
+o src/app/devices/NetworkTransfer.d : deps src/app/devices/NetworkTransfer.ast
+o src/app/devices/NetworkTransfer.cmj src/app/devices/NetworkTransfer.cmi ../../src/app/devices/NetworkTransfer.res.mjs : mij src/app/devices/NetworkTransfer.ast
+o src/app/devices/GlobalNetworkData.ast : astj ../../src/app/devices/GlobalNetworkData.res
+o src/app/devices/GlobalNetworkData.d : deps src/app/devices/GlobalNetworkData.ast
+o src/app/devices/GlobalNetworkData.cmj src/app/devices/GlobalNetworkData.cmi ../../src/app/devices/GlobalNetworkData.res.mjs : mij src/app/devices/GlobalNetworkData.ast
 o src/app/devices/PowerStationDevice.ast : astj ../../src/app/devices/PowerStationDevice.res
 o src/app/devices/PowerStationDevice.d : deps src/app/devices/PowerStationDevice.ast
 o src/app/devices/PowerStationDevice.cmj src/app/devices/PowerStationDevice.cmi ../../src/app/devices/PowerStationDevice.res.mjs : mij src/app/devices/PowerStationDevice.ast
@@ -141,6 +159,51 @@ o src/app/screens/LoadScreen.cmj src/app/screens/LoadScreen.cmi ../../src/app/sc
 o src/app/screens/WorldScreen.ast : astj ../../src/app/screens/WorldScreen.res
 o src/app/screens/WorldScreen.d : deps src/app/screens/WorldScreen.ast
 o src/app/screens/WorldScreen.cmj src/app/screens/WorldScreen.cmi ../../src/app/screens/WorldScreen.res.mjs : mij src/app/screens/WorldScreen.ast
+o src/app/screens/LocationData.ast : astj ../../src/app/screens/LocationData.res
+o src/app/screens/LocationData.d : deps src/app/screens/LocationData.ast
+o src/app/screens/LocationData.cmj src/app/screens/LocationData.cmi ../../src/app/screens/LocationData.res.mjs : mij src/app/screens/LocationData.ast
+o src/app/screens/WorldBuilder.ast : astj ../../src/app/screens/WorldBuilder.res
+o src/app/screens/WorldBuilder.d : deps src/app/screens/WorldBuilder.ast
+o src/app/screens/WorldBuilder.cmj src/app/screens/WorldBuilder.cmi ../../src/app/screens/WorldBuilder.res.mjs : mij src/app/screens/WorldBuilder.ast
+o src/app/screens/WorldMapScreen.ast : astj ../../src/app/screens/WorldMapScreen.res
+o src/app/screens/WorldMapScreen.d : deps src/app/screens/WorldMapScreen.ast
+o src/app/screens/WorldMapScreen.cmj src/app/screens/WorldMapScreen.cmi ../../src/app/screens/WorldMapScreen.res.mjs : mij src/app/screens/WorldMapScreen.ast
+o src/app/screens/LocationRegistry.ast : astj ../../src/app/screens/LocationRegistry.res
+o src/app/screens/LocationRegistry.d : deps src/app/screens/LocationRegistry.ast
+o src/app/screens/LocationRegistry.cmj src/app/screens/LocationRegistry.cmi ../../src/app/screens/LocationRegistry.res.mjs : mij src/app/screens/LocationRegistry.ast
+o src/app/screens/locations/LabScreen.ast : astj ../../src/app/screens/locations/LabScreen.res
+o src/app/screens/locations/LabScreen.d : deps src/app/screens/locations/LabScreen.ast
+o src/app/screens/locations/LabScreen.cmj src/app/screens/locations/LabScreen.cmi ../../src/app/screens/locations/LabScreen.res.mjs : mij src/app/screens/locations/LabScreen.ast
+o src/app/screens/locations/CityScreen.ast : astj ../../src/app/screens/locations/CityScreen.res
+o src/app/screens/locations/CityScreen.d : deps src/app/screens/locations/CityScreen.ast
+o src/app/screens/locations/CityScreen.cmj src/app/screens/locations/CityScreen.cmi ../../src/app/screens/locations/CityScreen.res.mjs : mij src/app/screens/locations/CityScreen.ast
+o src/app/screens/locations/AtlasScreen.ast : astj ../../src/app/screens/locations/AtlasScreen.res
+o src/app/screens/locations/AtlasScreen.d : deps src/app/screens/locations/AtlasScreen.ast
+o src/app/screens/locations/AtlasScreen.cmj src/app/screens/locations/AtlasScreen.cmi ../../src/app/screens/locations/AtlasScreen.res.mjs : mij src/app/screens/locations/AtlasScreen.ast
+o src/app/screens/locations/FieldScreen.ast : astj ../../src/app/screens/locations/FieldScreen.res
+o src/app/screens/locations/FieldScreen.d : deps src/app/screens/locations/FieldScreen.ast
+o src/app/screens/locations/FieldScreen.cmj src/app/screens/locations/FieldScreen.cmi ../../src/app/screens/locations/FieldScreen.res.mjs : mij src/app/screens/locations/FieldScreen.ast
+o src/app/screens/locations/NexusScreen.ast : astj ../../src/app/screens/locations/NexusScreen.res
+o src/app/screens/locations/NexusScreen.d : deps src/app/screens/locations/NexusScreen.ast
+o src/app/screens/locations/NexusScreen.cmj src/app/screens/locations/NexusScreen.cmi ../../src/app/screens/locations/NexusScreen.res.mjs : mij src/app/screens/locations/NexusScreen.ast
+o src/app/screens/locations/DevHubScreen.ast : astj ../../src/app/screens/locations/DevHubScreen.res
+o src/app/screens/locations/DevHubScreen.d : deps src/app/screens/locations/DevHubScreen.ast
+o src/app/screens/locations/DevHubScreen.cmj src/app/screens/locations/DevHubScreen.cmi ../../src/app/screens/locations/DevHubScreen.res.mjs : mij src/app/screens/locations/DevHubScreen.ast
+o src/app/screens/locations/LocationBase.ast : astj ../../src/app/screens/locations/LocationBase.res
+o src/app/screens/locations/LocationBase.d : deps src/app/screens/locations/LocationBase.ast
+o src/app/screens/locations/LocationBase.cmj src/app/screens/locations/LocationBase.cmi ../../src/app/screens/locations/LocationBase.res.mjs : mij src/app/screens/locations/LocationBase.ast
+o src/app/screens/locations/BackboneScreen.ast : astj ../../src/app/screens/locations/BackboneScreen.res
+o src/app/screens/locations/BackboneScreen.d : deps src/app/screens/locations/BackboneScreen.ast
+o src/app/screens/locations/BackboneScreen.cmj src/app/screens/locations/BackboneScreen.cmi ../../src/app/screens/locations/BackboneScreen.res.mjs : mij src/app/screens/locations/BackboneScreen.ast
+o src/app/screens/locations/RuralISPScreen.ast : astj ../../src/app/screens/locations/RuralISPScreen.res
+o src/app/screens/locations/RuralISPScreen.d : deps src/app/screens/locations/RuralISPScreen.ast
+o src/app/screens/locations/RuralISPScreen.cmj src/app/screens/locations/RuralISPScreen.cmi ../../src/app/screens/locations/RuralISPScreen.res.mjs : mij src/app/screens/locations/RuralISPScreen.ast
+o src/app/screens/locations/BusinessISPScreen.ast : astj ../../src/app/screens/locations/BusinessISPScreen.res
+o src/app/screens/locations/BusinessISPScreen.d : deps src/app/screens/locations/BusinessISPScreen.ast
+o src/app/screens/locations/BusinessISPScreen.cmj src/app/screens/locations/BusinessISPScreen.cmi ../../src/app/screens/locations/BusinessISPScreen.res.mjs : mij src/app/screens/locations/BusinessISPScreen.ast
+o src/app/screens/locations/RegionalISPScreen.ast : astj ../../src/app/screens/locations/RegionalISPScreen.res
+o src/app/screens/locations/RegionalISPScreen.d : deps src/app/screens/locations/RegionalISPScreen.ast
+o src/app/screens/locations/RegionalISPScreen.cmj src/app/screens/locations/RegionalISPScreen.cmi ../../src/app/screens/locations/RegionalISPScreen.res.mjs : mij src/app/screens/locations/RegionalISPScreen.ast
 o src/app/screens/main/Logo.ast : astj ../../src/app/screens/main/Logo.res
 o src/app/screens/main/Logo.d : deps src/app/screens/main/Logo.ast
 o src/app/screens/main/Logo.cmj src/app/screens/main/Logo.cmi ../../src/app/screens/main/Logo.res.mjs : mij src/app/screens/main/Logo.ast
@@ -156,6 +219,9 @@ o src/app/popups/PowerView.cmj src/app/popups/PowerView.cmi ../../src/app/popups
 o src/app/popups/PausePopup.ast : astj ../../src/app/popups/PausePopup.res
 o src/app/popups/PausePopup.d : deps src/app/popups/PausePopup.ast
 o src/app/popups/PausePopup.cmj src/app/popups/PausePopup.cmi ../../src/app/popups/PausePopup.res.mjs : mij src/app/popups/PausePopup.ast
+o src/app/popups/ForceLayout.ast : astj ../../src/app/popups/ForceLayout.res
+o src/app/popups/ForceLayout.d : deps src/app/popups/ForceLayout.ast
+o src/app/popups/ForceLayout.cmj src/app/popups/ForceLayout.cmi ../../src/app/popups/ForceLayout.res.mjs : mij src/app/popups/ForceLayout.ast
 o src/app/popups/SettingsPopup.ast : astj ../../src/app/popups/SettingsPopup.res
 o src/app/popups/SettingsPopup.d : deps src/app/popups/SettingsPopup.ast
 o src/app/popups/SettingsPopup.cmj src/app/popups/SettingsPopup.cmi ../../src/app/popups/SettingsPopup.res.mjs : mij src/app/popups/SettingsPopup.ast

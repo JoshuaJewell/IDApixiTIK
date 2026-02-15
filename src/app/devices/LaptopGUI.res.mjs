@@ -2,11 +2,13 @@
 
 import * as PixiJs from "pixi.js";
 import * as Ui from "@pixi/ui";
-import * as Core__Int from "@rescript/core/src/Core__Int.res.mjs";
-import * as Caml_option from "rescript/lib/es6/caml_option.js";
+import * as Terminal from "./Terminal.res.mjs";
+import * as DeviceView from "./DeviceView.res.mjs";
 import * as LaptopState from "./LaptopState.res.mjs";
 import * as Core__Option from "@rescript/core/src/Core__Option.res.mjs";
 import * as PowerManager from "./PowerManager.res.mjs";
+import * as NetworkManagerResMjs from "./NetworkManager.res.mjs";
+import * as GlobalNetworkManagerResMjs from "./GlobalNetworkManager.res.mjs";
 
 function make(title, w, h, appName, onClose, param) {
   var container = new PixiJs.Container();
@@ -127,736 +129,18 @@ function splitPath(path) {
         ];
 }
 
-function createLaptopTerminal(state, width, height, onRdp, param) {
-  var container = new PixiJs.Container();
-  container.eventMode = "static";
-  var bg = new PixiJs.Graphics();
-  bg.rect(0.0, 0.0, width, height).fill(0);
-  bg.eventMode = "static";
-  bg.cursor = "text";
-  container.addChild(bg);
-  var monoStyle = {
-    fontFamily: "monospace",
-    fontSize: 11,
-    fill: 65280
-  };
-  var currentDir = {
-    contents: "C:\\Users\\Admin"
-  };
-  var currentInput = {
-    contents: ""
-  };
-  var outputLines = {
-    contents: []
-  };
-  var commandHistory = {
-    contents: []
-  };
-  var historyIndex = {
-    contents: -1
-  };
-  var sshStack = {
-    contents: []
-  };
-  var getCurrentState = function () {
-    var session = sshStack.contents[sshStack.contents.length - 1 | 0];
-    if (session !== undefined) {
-      return session.remoteState;
-    } else {
-      return state;
-    }
-  };
-  var isInSSH = function () {
-    return sshStack.contents.length > 0;
-  };
-  var inputLine = new PixiJs.Text({
-        text: currentDir.contents + "> ",
-        style: monoStyle
-      });
-  inputLine.x = 10.0;
-  inputLine.y = height - 25.0;
-  container.addChild(inputLine);
-  var addOutput = function (text) {
-    var lines = text.split("\n");
-    lines.forEach(function (line) {
-          var textObj = new PixiJs.Text({
-                text: line,
-                style: monoStyle
-              });
-          textObj.x = 10.0;
-          textObj.y = 10.0 + outputLines.contents.length * 16.0;
-          container.addChild(textObj);
-          outputLines.contents = outputLines.contents.concat([textObj]);
-        });
-    while(outputLines.contents.length > 18) {
-      var oldLine = outputLines.contents[0];
-      if (oldLine !== undefined) {
-        Caml_option.valFromOption(oldLine).destroy();
-        outputLines.contents = outputLines.contents.slice(1);
-      }
-      
-    };
-    outputLines.contents.forEach(function (line, i) {
-          line.y = 10.0 + i * 16.0;
-        });
-  };
-  var updateInput = function () {
-    var prompt;
-    if (isInSSH()) {
-      var currentState = getCurrentState();
-      prompt = currentState.currentUser + "@" + currentState.hostname + ":" + currentDir.contents + "$ ";
-    } else {
-      prompt = currentDir.contents + "> ";
-    }
-    inputLine.text = prompt + currentInput.contents + "_";
-  };
-  var resolveFull = function (path) {
-    if (path.startsWith("C:")) {
-      return path;
-    }
-    if (path !== "..") {
-      return currentDir.contents + "\\" + path;
-    }
-    var parts = currentDir.contents.split("\\").filter(function (p) {
-          return p !== "";
-        });
-    parts.pop();
-    if (parts.length === 0) {
-      return "C:\\";
-    } else {
-      return parts.join("\\");
-    }
-  };
-  var executeCommand = function () {
-    var cmd = currentInput.contents.trim();
-    var prompt;
-    if (isInSSH()) {
-      var currentState = getCurrentState();
-      prompt = currentState.currentUser + "@" + currentState.hostname + ":" + currentDir.contents + "$ ";
-    } else {
-      prompt = currentDir.contents + "> ";
-    }
-    addOutput(prompt + cmd);
-    if (cmd !== "") {
-      commandHistory.contents = commandHistory.contents.concat([cmd]);
-      historyIndex.contents = -1;
-      var parts = cmd.split(" ").filter(function (p) {
-            return p !== "";
-          });
-      var cmdName = Core__Option.getOr(parts[0], "");
-      var args = parts.slice(1);
-      var activeState = getCurrentState();
-      LaptopState.addCpuSpike(activeState.processManager, 2.0);
-      LaptopState.addToHistory(activeState, cmd);
-      var output;
-      var exit = 0;
-      switch (cmdName) {
-        case "" :
-            output = "";
-            break;
-        case "cd" :
-            var path = Core__Option.getOr(args[0], "C:\\");
-            var newPath = resolveFull(path);
-            var match = LaptopState.resolvePath(activeState.filesystem, newPath);
-            if (match !== undefined) {
-              if (match.TAG === "Dir") {
-                currentDir.contents = newPath;
-                output = "";
-              } else {
-                output = "Not a directory: " + path;
-              }
-            } else {
-              output = "Directory not found: " + path;
-            }
-            break;
-        case "chmod" :
-            var match$1 = args[0];
-            var match$2 = args[1];
-            if (match$1 !== undefined && match$2 !== undefined) {
-              var fullPath = resolveFull(match$2);
-              var locked = match$1 === "-w";
-              var err = LaptopState.setFileLocked(activeState.filesystem, fullPath, locked);
-              output = err.TAG === "Ok" ? "" : "chmod: " + err._0;
-            } else {
-              output = "Usage: chmod +w/-w <file>";
-            }
-            break;
-        case "clear" :
-        case "cls" :
-            exit = 1;
-            break;
-        case "copy" :
-        case "cp" :
-            exit = 5;
-            break;
-        case "date" :
-            output = "Sun Dec 08 2024";
-            break;
-        case "df" :
-            LaptopState.addCpuSpike(activeState.processManager, 1.0);
-            var match$3 = LaptopState.getTotalStorageUsage(activeState.processManager, activeState.filesystem);
-            var total = match$3[1];
-            var used = match$3[0];
-            var percent = used / total * 100.0;
-            output = "Filesystem      Size    Used    Avail   Use%\nC:\\             " + total.toString() + " Gq  " + used.toString() + " Gq   " + (total - used | 0).toString() + " Gq  " + percent.toFixed(0) + "%";
-            break;
-        case "dig" :
-            var host = args[0];
-            if (host !== undefined) {
-              LaptopState.addCpuSpike(activeState.processManager, 1.0);
-              var ni = activeState.networkInterface;
-              if (ni !== undefined) {
-                var ip = ni.resolveDns(host);
-                output = ip !== undefined ? "; <<>> DiG 9.16.1 <<>> " + host + "\n;; QUESTION SECTION:\n;" + host + ".                  IN      A\n\n;; ANSWER SECTION:\n" + host + ".           300     IN      A       " + ip + "\n\n;; Query time: 12 msec\n;; SERVER: 8.8.8.8#53(8.8.8.8)\n;; MSG SIZE  rcvd: 56" : "; <<>> DiG 9.16.1 <<>> " + host + "\n;; QUESTION SECTION:\n;" + host + ".                  IN      A\n\n;; AUTHORITY SECTION:\n.                   86400   IN      SOA     a.root-servers.net.\n\n;; Query time: 24 msec\n;; SERVER: 8.8.8.8#53(8.8.8.8)\n\n** No answer for " + host;
-              } else {
-                output = "dig: " + host + ": Network not available";
-              }
-            } else {
-              output = "Usage: dig <hostname>";
-            }
-            break;
-        case "echo" :
-            var argsStr = args.join(" ");
-            if (argsStr.includes(">")) {
-              var redirectParts = argsStr.split(">");
-              var text = Core__Option.getOr(redirectParts[0], "").trim();
-              var filename = Core__Option.getOr(redirectParts[1], "").trim();
-              if (filename === "") {
-                output = "Usage: echo <text> > <filename>";
-              } else {
-                var fullPath$1 = resolveFull(filename);
-                var match$4 = LaptopState.resolvePath(activeState.filesystem, fullPath$1);
-                if (match$4 !== undefined) {
-                  if (match$4.TAG === "Dir") {
-                    output = "Is a directory: " + filename;
-                  } else {
-                    var err$1 = LaptopState.writeFile(activeState.filesystem, fullPath$1, text);
-                    output = err$1.TAG === "Ok" ? "" : err$1._0;
-                  }
-                } else {
-                  var match$5 = splitPath(fullPath$1);
-                  var err$2 = LaptopState.createFile(activeState.filesystem, match$5[0], match$5[1], text);
-                  output = err$2.TAG === "Ok" ? "" : err$2._0;
-                }
-              }
-            } else {
-              output = argsStr;
-            }
-            break;
-        case "find" :
-            var pattern = args[0];
-            if (pattern !== undefined) {
-              LaptopState.addCpuSpike(activeState.processManager, 5.0);
-              var items = LaptopState.listDir(activeState.filesystem, currentDir.contents);
-              if (items !== undefined) {
-                var matches = items.filter(function (param) {
-                      return param[0].toLowerCase().includes(pattern.toLowerCase());
-                    });
-                output = matches.length === 0 ? "No files matching '" + pattern + "' found." : matches.map(function (param) {
-                          return currentDir.contents + "\\" + param[0];
-                        }).join("\n");
-              } else {
-                output = "find: cannot access directory";
-              }
-            } else {
-              output = "Usage: find <pattern>";
-            }
-            break;
-        case "help" :
-            output = "Available commands:\n  dir, ls          - List directory contents\n  cd <path>        - Change directory\n  cat, type <file> - Display file contents\n  cls, clear       - Clear screen\n  pwd              - Print working directory\n  mkdir <name>     - Create directory\n  touch <name>     - Create empty file\n  rm, del <name>   - Delete file or empty directory\n  cp <src> <dest>  - Copy file\n  mv <src> <dest>  - Move/rename file\n  echo <text>      - Display text\n  echo <text> > <file> - Write text to file\n  history          - Show command history\n  history -c       - Clear command history\n  ps               - Show running processes\n  kill <pid>       - Kill a process\n  df               - Show storage usage\n  stat <file>      - Show file info\n  chmod +/-w <file>- Change file permissions\n  tree             - Show directory tree\n  find <pattern>   - Search for files\n  netstat          - Show network connections\n  ifconfig         - Show network config\n  uname            - Show system info\n  uptime           - Show uptime\n  last             - Show login history\n  who              - Show current user\n  ping <host>      - Ping a host (supports hostnames)\n  traceroute <host>- Trace route to host\n  nslookup <host>  - DNS lookup\n  dig <host>       - DNS lookup (detailed)\n  ssh <host>       - SSH to remote host\n  rdp <host>       - Remote desktop to host\n  exit             - Exit SSH session\n  shutdown         - Shutdown this device\n  reboot           - Reboot this device\n  help             - Show this help\n\nUse up/down arrows to navigate command history.";
-            break;
-        case "history" :
-            var match$6 = args[0];
-            var exit$1 = 0;
-            if (match$6 === "-c") {
-              LaptopState.clearHistory(activeState);
-              output = "History cleared.";
-            } else {
-              exit$1 = 11;
-            }
-            if (exit$1 === 11) {
-              var hist = LaptopState.getHistory(activeState);
-              output = hist.length === 0 ? "(no history)" : hist.map(function (cmd, i) {
-                        return "  " + (i + 1 | 0).toString() + "  " + cmd;
-                      }).join("\n");
-            }
-            break;
-        case "hostname" :
-            output = activeState.hostname;
-            break;
-        case "ifconfig" :
-        case "ipconfig" :
-            exit = 7;
-            break;
-        case "kill" :
-            var pidStr = args[0];
-            if (pidStr !== undefined) {
-              var pid = Core__Int.fromString(pidStr, undefined);
-              if (pid !== undefined) {
-                var err$3 = LaptopState.killProcess(activeState.processManager, pid);
-                output = err$3.TAG === "Ok" ? "Process " + pidStr + " terminated." : "kill: " + err$3._0;
-              } else {
-                output = "kill: invalid PID";
-              }
-            } else {
-              output = "Usage: kill <pid>";
-            }
-            break;
-        case "last" :
-            var logins = activeState.loginHistory;
-            output = logins.length === 0 ? "(no login history)" : logins.map(function (param) {
-                      return param[0] + "    pts/0    " + param[1];
-                    }).join("\n");
-            break;
-        case "exit" :
-        case "logout" :
-            exit = 10;
-            break;
-        case "dir" :
-        case "ls" :
-            exit = 2;
-            break;
-        case "mkdir" :
-            var name = args[0];
-            if (name !== undefined) {
-              var err$4 = LaptopState.createDir(activeState.filesystem, currentDir.contents, name);
-              output = err$4.TAG === "Ok" ? "Directory created: " + name : err$4._0;
-            } else {
-              output = "Usage: mkdir <dirname>";
-            }
-            break;
-        case "netstat" :
-            LaptopState.addCpuSpike(activeState.processManager, 2.0);
-            var ip$1 = activeState.ipAddress;
-            output = "Active Network Connections:\n  Proto  Local Address          Foreign Address        State\n  TCP    " + ip$1 + ":445      0.0.0.0:0              LISTENING\n  TCP    " + ip$1 + ":3389     0.0.0.0:0              LISTENING\n  TCP    " + ip$1 + ":22       0.0.0.0:0              LISTENING\n  TCP    " + ip$1 + ":49412    204.79.197.200:443     ESTABLISHED\n  UDP    " + ip$1 + ":137      *:*\n  UDP    " + ip$1 + ":138      *:*                    ";
-            break;
-        case "nslookup" :
-            var host$1 = args[0];
-            if (host$1 !== undefined) {
-              LaptopState.addCpuSpike(activeState.processManager, 1.0);
-              var ni$1 = activeState.networkInterface;
-              if (ni$1 !== undefined) {
-                var ip$2 = ni$1.resolveDns(host$1);
-                output = ip$2 !== undefined ? "Server:  dns.google\nAddress:  8.8.8.8\n\nName:    " + host$1 + "\nAddress: " + ip$2 : "Server:  dns.google\nAddress:  8.8.8.8\n\n** server can't find " + host$1 + ": NXDOMAIN";
-              } else {
-                output = "nslookup: " + host$1 + ": Network not available";
-              }
-            } else {
-              output = "Usage: nslookup <hostname>";
-            }
-            break;
-        case "ping" :
-            var host$2 = args[0];
-            if (host$2 !== undefined) {
-              LaptopState.addCpuSpike(activeState.processManager, 3.0);
-              var ni$2 = activeState.networkInterface;
-              output = ni$2 !== undefined ? (
-                  ni$2.ping(host$2) ? "Pinging " + host$2 + " with 32 bytes of data:\nReply from " + host$2 + ": bytes=32 time=12ms TTL=64\nReply from " + host$2 + ": bytes=32 time=11ms TTL=64\nReply from " + host$2 + ": bytes=32 time=13ms TTL=64\n\nPing statistics for " + host$2 + ":\n    Packets: Sent = 3, Received = 3, Lost = 0 (0% loss)" : "Pinging " + host$2 + " with 32 bytes of data:\nRequest timed out.\nRequest timed out.\nRequest timed out.\n\nPing statistics for " + host$2 + ":\n    Packets: Sent = 3, Received = 0, Lost = 3 (100% loss)"
-                ) : "Pinging " + host$2 + " with 32 bytes of data:\nReply from " + host$2 + ": bytes=32 time=12ms TTL=64\nReply from " + host$2 + ": bytes=32 time=11ms TTL=64\nReply from " + host$2 + ": bytes=32 time=13ms TTL=64\n\nPing statistics for " + host$2 + ":\n    Packets: Sent = 3, Received = 3, Lost = 0 (0% loss)";
-            } else {
-              output = "Usage: ping <host>";
-            }
-            break;
-        case "ps" :
-            LaptopState.addCpuSpike(activeState.processManager, 3.0);
-            var procs = LaptopState.getProcesses(activeState.processManager);
-            var lines = procs.map(function (p) {
-                  var pidStr = p.pid.toString().padStart(5, " ");
-                  var nameStr = p.name.padEnd(24, " ");
-                  var cpuStr = p.cpuPercent.toFixed(1).padStart(5, " ");
-                  var gqStr = p.sizeGq.toString().padStart(4, " ");
-                  return pidStr + "  " + nameStr + " " + cpuStr + "  " + gqStr;
-                });
-            output = "  PID  NAME                      CPU%   Gq\n" + lines.join("\n");
-            break;
-        case "pwd" :
-            output = currentDir.contents;
-            break;
-        case "mstsc" :
-        case "rdp" :
-            exit = 8;
-            break;
-        case "reboot" :
-            var ip$3 = activeState.ipAddress;
-            var wasShutdown = PowerManager.isDeviceShutdown(ip$3);
-            if (wasShutdown) {
-              if (PowerManager.deviceHasPower(ip$3)) {
-                PowerManager.bootDevice(ip$3);
-                output = "System is rebooting...";
-              } else {
-                output = "reboot: no power available";
-              }
-            } else {
-              PowerManager.manualShutdownDevice(ip$3);
-              if (PowerManager.deviceHasPower(ip$3)) {
-                PowerManager.bootDevice(ip$3);
-                output = "System is rebooting...";
-              } else {
-                output = "reboot: no power available after shutdown";
-              }
-            }
-            break;
-        case "move" :
-        case "mv" :
-        case "ren" :
-            exit = 6;
-            break;
-        case "del" :
-        case "rm" :
-            exit = 4;
-            break;
-        case "shutdown" :
-            var ip$4 = activeState.ipAddress;
-            PowerManager.manualShutdownDevice(ip$4);
-            output = "System is shutting down...";
-            break;
-        case "ssh" :
-            var target = args[0];
-            if (target !== undefined) {
-              LaptopState.addCpuSpike(activeState.processManager, 2.0);
-              var sshParts = target.split("@");
-              var host$3 = sshParts.length > 1 ? Core__Option.getOr(sshParts[1], target) : target;
-              var ni$3 = activeState.networkInterface;
-              if (ni$3 !== undefined) {
-                if (ni$3.hasSSH(host$3)) {
-                  var remoteState = ni$3.getRemoteState(host$3);
-                  if (remoteState !== undefined) {
-                    var clientPid = LaptopState.openApp(activeState.processManager, "ssh.exe");
-                    LaptopState.openApp(remoteState.processManager, "sshd.exe");
-                    var session_previousDir = currentDir.contents;
-                    var session = {
-                      remoteState: remoteState,
-                      remoteHost: host$3,
-                      previousDir: session_previousDir
-                    };
-                    sshStack.contents = sshStack.contents.concat([session]);
-                    currentDir.contents = "C:\\Users\\Admin";
-                    output = "Connecting to " + host$3 + "...\n[Local PID " + clientPid.toString() + "] SSH client started\nSSH connection established to " + remoteState.hostname + ".\nWelcome to " + remoteState.hostname + "\nType 'exit' to disconnect.";
-                  } else {
-                    output = "ssh: connect to host " + host$3 + ": Connection refused";
-                  }
-                } else {
-                  output = ni$3.ping(host$3) ? "ssh: connect to host " + host$3 + ": Connection refused\n(SSH service not running on this host)" : "ssh: connect to host " + host$3 + ": No route to host";
-                }
-              } else {
-                output = "ssh: connect to host " + target + ": Connection refused\n(Network not available)";
-              }
-            } else {
-              output = "Usage: ssh <user@host>";
-            }
-            break;
-        case "stat" :
-            var path$1 = args[0];
-            if (path$1 !== undefined) {
-              var fullPath$2 = resolveFull(path$1);
-              var match$7 = LaptopState.getFileInfo(activeState.filesystem, fullPath$2);
-              if (match$7 !== undefined) {
-                var typeStr = match$7[0] ? "directory" : "regular file";
-                var permStr = match$7[1] ? "r--r--r--" : "rw-rw-rw-";
-                output = "  File: " + path$1 + "\n  Size: " + match$7[2].toString() + " Gq (" + match$7[3].toString() + " bytes)\n  Type: " + typeStr + "\nAccess: " + permStr;
-              } else {
-                output = "stat: " + path$1 + ": No such file or directory";
-              }
-            } else {
-              output = "Usage: stat <file>";
-            }
-            break;
-        case "time" :
-            output = "09:45:32";
-            break;
-        case "touch" :
-            var name$1 = args[0];
-            if (name$1 !== undefined) {
-              var err$5 = LaptopState.createFile(activeState.filesystem, currentDir.contents, name$1, "");
-              output = err$5.TAG === "Ok" ? "File created: " + name$1 : err$5._0;
-            } else {
-              output = "Usage: touch <filename>";
-            }
-            break;
-        case "traceroute" :
-        case "tracert" :
-            exit = 9;
-            break;
-        case "tree" :
-            LaptopState.addCpuSpike(activeState.processManager, 2.0);
-            var items$1 = LaptopState.listDir(activeState.filesystem, currentDir.contents);
-            if (items$1 !== undefined) {
-              var lines$1 = items$1.map(function (param, i) {
-                    var prefix = i === (items$1.length - 1 | 0) ? "`-- " : "|-- ";
-                    var suffix = param[1] ? "/" : "";
-                    return prefix + param[0] + suffix;
-                  });
-              output = currentDir.contents + "\n" + lines$1.join("\n");
-            } else {
-              output = "tree: cannot access directory";
-            }
-            break;
-        case "cat" :
-        case "type" :
-            exit = 3;
-            break;
-        case "uname" :
-            var arg = Core__Option.getOr(args[0], "");
-            output = arg === "-a" ? "CorpOS " + activeState.hostname + " 2.4.1 Build 9200 x86_64" : "CorpOS";
-            break;
-        case "uptime" :
-            output = "09:45:32 up 3 days, 14:22, 1 user, load average: 0.08, 0.12, 0.10";
-            break;
-        case "who" :
-            output = activeState.currentUser + "    pts/0    Dec  8 09:45 (console)";
-            break;
-        case "whoami" :
-            output = activeState.currentUser;
-            break;
-        default:
-          output = "'" + cmdName + "' is not recognized as an internal or external command.";
-      }
-      switch (exit) {
-        case 1 :
-            outputLines.contents.forEach(function (line) {
-                  line.destroy();
-                });
-            outputLines.contents = [];
-            output = "";
-            break;
-        case 2 :
-            var path$2 = Core__Option.getOr(args[0], currentDir.contents);
-            var fullPath$3 = resolveFull(path$2);
-            var items$2 = LaptopState.listDir(activeState.filesystem, fullPath$3);
-            output = items$2 !== undefined ? (
-                items$2.length === 0 ? "(empty directory)" : items$2.map(function (param) {
-                          var prefix = param[1] ? "[DIR] " : "[FILE]";
-                          var suffix = param[2] ? " [LOCKED]" : "";
-                          return prefix + " " + param[0] + suffix;
-                        }).join("\n")
-              ) : "Directory not found: " + path$2;
-            break;
-        case 3 :
-            var filename$1 = args[0];
-            if (filename$1 !== undefined) {
-              var fullPath$4 = resolveFull(filename$1);
-              output = LaptopState.readFile(activeState.filesystem, fullPath$4)._0;
-            } else {
-              output = "Usage: cat <filename>";
-            }
-            break;
-        case 4 :
-            var name$2 = args[0];
-            if (name$2 !== undefined) {
-              var err$6 = LaptopState.deleteNode(activeState.filesystem, currentDir.contents, name$2);
-              output = err$6.TAG === "Ok" ? "Deleted: " + name$2 : err$6._0;
-            } else {
-              output = "Usage: rm <filename>";
-            }
-            break;
-        case 5 :
-            var match$8 = args[0];
-            var match$9 = args[1];
-            if (match$8 !== undefined && match$9 !== undefined) {
-              var srcFull = resolveFull(match$8);
-              var destFull = resolveFull(match$9);
-              var match$10 = splitPath(destFull);
-              var err$7 = LaptopState.copyFile(activeState.filesystem, srcFull, match$10[0], match$10[1]);
-              output = err$7.TAG === "Ok" ? "Copied: " + match$8 + " -> " + match$9 : err$7._0;
-            } else {
-              output = "Usage: cp <source> <destination>";
-            }
-            break;
-        case 6 :
-            var match$11 = args[0];
-            var match$12 = args[1];
-            if (match$11 !== undefined && match$12 !== undefined) {
-              var srcFull$1 = resolveFull(match$11);
-              var match$13 = splitPath(srcFull$1);
-              var destFull$1 = resolveFull(match$12);
-              var match$14 = splitPath(destFull$1);
-              var err$8 = LaptopState.moveFile(activeState.filesystem, match$13[0], match$13[1], match$14[0], match$14[1]);
-              output = err$8.TAG === "Ok" ? "Moved: " + match$11 + " -> " + match$12 : err$8._0;
-            } else {
-              output = "Usage: mv <source> <destination>";
-            }
-            break;
-        case 7 :
-            var ip$5 = activeState.ipAddress;
-            output = "Ethernet adapter Local Area Connection:\n\n   Connection-specific DNS Suffix  . : local\n   IPv4 Address. . . . . . . . . . . : " + ip$5 + "\n   Subnet Mask . . . . . . . . . . . : 255.255.255.0\n   Default Gateway . . . . . . . . . : 192.168.1.1\n\nWireless LAN adapter WiFi:\n\n   Media State . . . . . . . . . . . : Media disconnected";
-            break;
-        case 8 :
-            var host$4 = args[0];
-            if (host$4 !== undefined) {
-              LaptopState.addCpuSpike(activeState.processManager, 2.0);
-              var ni$4 = activeState.networkInterface;
-              if (ni$4 !== undefined) {
-                if (ni$4.ping(host$4)) {
-                  var remoteState$1 = ni$4.getRemoteState(host$4);
-                  if (remoteState$1 !== undefined) {
-                    if (onRdp !== undefined) {
-                      onRdp(remoteState$1, host$4);
-                      output = "Launching Remote Desktop to " + host$4 + "...\nRDP connection initiated to " + remoteState$1.hostname + ".";
-                    } else {
-                      output = "rdp: Remote Desktop not available in this context.\nUse the RDP icon on the desktop instead.";
-                    }
-                  } else {
-                    output = "rdp: connect to host " + host$4 + ": RDP not supported\n(Host does not support remote desktop)";
-                  }
-                } else {
-                  output = "rdp: connect to host " + host$4 + ": No route to host";
-                }
-              } else {
-                output = "rdp: connect to host " + host$4 + ": Connection refused\n(Network not available)";
-              }
-            } else {
-              output = "Usage: rdp <host>";
-            }
-            break;
-        case 9 :
-            var host$5 = args[0];
-            if (host$5 !== undefined) {
-              LaptopState.addCpuSpike(activeState.processManager, 4.0);
-              var ni$5 = activeState.networkInterface;
-              if (ni$5 !== undefined) {
-                var resolvedIp = ni$5.resolveDns(host$5);
-                if (resolvedIp !== undefined) {
-                  var hops = ni$5.traceRoute(resolvedIp);
-                  if (hops.length === 0) {
-                    output = "traceroute: " + host$5 + ": No route to host";
-                  } else {
-                    var header = "traceroute to " + host$5 + " (" + resolvedIp + "), 30 hops max\n";
-                    var lines$2 = hops.map(function (param, i) {
-                          var hopNum = (i + 1 | 0).toString().padStart(2, " ");
-                          return hopNum + "  " + param[1] + " (" + param[0] + ")  " + param[2].toString() + "ms";
-                        });
-                    output = header + lines$2.join("\n");
-                  }
-                } else if (ni$5.ping(host$5)) {
-                  var hops$1 = ni$5.traceRoute(host$5);
-                  if (hops$1.length === 0) {
-                    output = "traceroute: " + host$5 + ": No route to host";
-                  } else {
-                    var header$1 = "traceroute to " + host$5 + ", 30 hops max\n";
-                    var lines$3 = hops$1.map(function (param, i) {
-                          var hopNum = (i + 1 | 0).toString().padStart(2, " ");
-                          return hopNum + "  " + param[1] + " (" + param[0] + ")  " + param[2].toString() + "ms";
-                        });
-                    output = header$1 + lines$3.join("\n");
-                  }
-                } else {
-                  output = "traceroute: " + host$5 + ": Name or service not known";
-                }
-              } else {
-                output = "traceroute: " + host$5 + ": Network not available";
-              }
-            } else {
-              output = "Usage: traceroute <host>";
-            }
-            break;
-        case 10 :
-            if (isInSSH()) {
-              var session$1 = sshStack.contents[sshStack.contents.length - 1 | 0];
-              if (session$1 !== undefined) {
-                var previousState;
-                if (sshStack.contents.length > 1) {
-                  var prevSession = sshStack.contents[sshStack.contents.length - 2 | 0];
-                  previousState = prevSession !== undefined ? prevSession.remoteState : state;
-                } else {
-                  previousState = state;
-                }
-                LaptopState.closeApp(previousState.processManager, "ssh.exe");
-                LaptopState.closeApp(session$1.remoteState.processManager, "sshd.exe");
-                currentDir.contents = session$1.previousDir;
-              }
-              sshStack.contents = sshStack.contents.slice(0, sshStack.contents.length - 1 | 0);
-              output = "Connection to remote host closed.";
-            } else {
-              output = "logout: not in SSH session";
-            }
-            break;
-        
-      }
-      if (output !== "") {
-        addOutput(output);
-      }
-      
-    }
-    currentInput.contents = "";
-    updateInput();
-  };
-  var historyUp = function () {
-    var len = commandHistory.contents.length;
-    if (len > 0) {
-      if (historyIndex.contents === -1) {
-        historyIndex.contents = len - 1 | 0;
-      } else if (historyIndex.contents > 0) {
-        historyIndex.contents = historyIndex.contents - 1 | 0;
-      }
-      currentInput.contents = Core__Option.getOr(commandHistory.contents[historyIndex.contents], "");
-      return updateInput();
-    }
-    
-  };
-  var historyDown = function () {
-    var len = commandHistory.contents.length;
-    if (historyIndex.contents !== -1) {
-      if (historyIndex.contents < (len - 1 | 0)) {
-        historyIndex.contents = historyIndex.contents + 1 | 0;
-        currentInput.contents = Core__Option.getOr(commandHistory.contents[historyIndex.contents], "");
-      } else {
-        historyIndex.contents = -1;
-        currentInput.contents = "";
-      }
-      return updateInput();
-    }
-    
-  };
-  var isFocused = {
-    contents: false
-  };
-  bg.on("pointerdown", (function (param) {
-          isFocused.contents = true;
-        }));
-  var setupKeyboard = (function(isFocused, currentInput, updateInput, executeCommand, historyUp, historyDown) {
-      const handler = (e) => {
-        if (!isFocused.contents) return;
-
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          executeCommand();
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          historyUp();
-        } else if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          historyDown();
-        } else if (e.key === 'Backspace') {
-          e.preventDefault();
-          currentInput.contents = currentInput.contents.slice(0, -1);
-          updateInput();
-        } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-          e.preventDefault();
-          currentInput.contents += e.key;
-          updateInput();
-        }
-      };
-      window.addEventListener('keydown', handler);
-      return handler;
-    });
-  setupKeyboard(isFocused, currentInput, updateInput, executeCommand, historyUp, historyDown);
-  addOutput("CorpOS Terminal [Version 2.4.1]");
-  addOutput("Type 'help' for available commands.");
-  addOutput("");
-  updateInput();
-  return container;
-}
-
 function openNotepad(laptop, desktop, filePath, param) {
   var pid = LaptopState.openApp(laptop.state.processManager, "notepad.exe");
   var path = Core__Option.getOr(filePath, "C:\\Users\\Admin\\Documents\\notes.txt");
   var fileName = Core__Option.getOr((function (__x) {
             return __x[path.split("\\").length - 1 | 0];
           })(path.split("\\")), "Untitled");
-  var content = LaptopState.readFile(laptop.state.filesystem, path);
+  var content = DeviceView.readFile(laptop.state.ipAddress, path);
   var initialContent;
   initialContent = content.TAG === "Ok" ? content._0 : "";
+  var setInputFocused = (function(focused) { window.__pixiui_input_focused = focused; });
   var win = make("Notepad - " + fileName, 380.0, 280.0, "Notepad", (function () {
+          setInputFocused(false);
           LaptopState.closeApp(laptop.state.processManager, "notepad.exe");
         }), undefined);
   LaptopState.registerWindowCloser(laptop.state.processManager, pid, (function () {
@@ -895,14 +179,18 @@ function openNotepad(laptop, desktop, filePath, param) {
   textInput.y = 10.0;
   content$1.addChild(textInput);
   textInput.onChange.connect(function (newText) {
-        LaptopState.writeFile(laptop.state.filesystem, path, newText);
+        DeviceView.writeFile(laptop.state.ipAddress, path, newText);
       });
+  textInput.eventMode = "static";
+  textInput.on("pointerdown", (function (param) {
+          setInputFocused(true);
+        }));
   desktop.addChild(win.container);
 }
 
 function openFileManager(laptop, desktop) {
   var pid = LaptopState.openApp(laptop.state.processManager, "explorer.exe");
-  var win = make("File Manager", 420.0, 320.0, "File Manager", (function () {
+  var win = make("File Manager - All Files", 420.0, 320.0, "File Manager", (function () {
           LaptopState.closeApp(laptop.state.processManager, "explorer.exe");
         }), undefined);
   LaptopState.registerWindowCloser(laptop.state.processManager, pid, (function () {
@@ -912,180 +200,422 @@ function openFileManager(laptop, desktop) {
   win.container.y = 100.0;
   var content = win.content;
   var currentPath = {
-    contents: "C:\\Users\\Admin"
+    contents: "C:\\"
   };
-  var pathBarBg = new PixiJs.Graphics();
-  pathBarBg.rect(0.0, 0.0, 400.0, 22.0).fill({
-          color: 16777215
-        }).stroke({
-        width: 1,
-        color: 13421772
-      });
-  var pathInput = new Ui.Input({
-        bg: pathBarBg,
-        value: currentPath.contents,
-        textStyle: {
+  var headerText = new PixiJs.Text({
+        text: "Files on " + laptop.state.hostname + " (" + laptop.state.ipAddress + ")",
+        style: {
           fontSize: 11,
           fill: 0,
-          fontFamily: "monospace"
-        },
-        padding: 5
+          fontFamily: "monospace",
+          fontWeight: "bold"
+        }
       });
-  pathInput.x = 5.0;
-  pathInput.y = 5.0;
-  content.addChild(pathInput);
+  headerText.x = 10.0;
+  headerText.y = 10.0;
+  content.addChild(headerText);
+  var pathText = new PixiJs.Text({
+        text: "Path: " + currentPath.contents,
+        style: {
+          fontSize: 10,
+          fill: 6710886,
+          fontFamily: "monospace"
+        }
+      });
+  pathText.x = 10.0;
+  pathText.y = 25.0;
+  content.addChild(pathText);
   var fileList = new PixiJs.Container();
-  fileList.y = 35.0;
+  fileList.y = 45.0;
   content.addChild(fileList);
-  var renderDir = function () {
+  var renderDirectory = function () {
     fileList.removeChildren();
-    pathInput.value = currentPath.contents;
-    if (currentPath.contents !== "C:" && currentPath.contents !== "C:\\") {
-      var upItem = new PixiJs.Container();
-      upItem.eventMode = "static";
-      upItem.cursor = "pointer";
-      var upBg = new PixiJs.Graphics();
-      upBg.rect(0.0, 0.0, 400.0, 20.0).fill({
-            color: 16316664
+    var yOffset = {
+      contents: 0.0
+    };
+    if (currentPath.contents !== "C:\\") {
+      var item = new PixiJs.Container();
+      item.y = yOffset.contents;
+      item.eventMode = "static";
+      item.cursor = "pointer";
+      var itemBg = new PixiJs.Graphics();
+      itemBg.rect(0.0, 0.0, 400.0, 20.0).fill({
+            color: 16119285
           });
-      upItem.addChild(upBg);
-      var upText = new PixiJs.Text({
-            text: "[..] Parent Directory",
+      item.addChild(itemBg);
+      var itemText = new PixiJs.Text({
+            text: "[DIR]  ..",
             style: {
               fontSize: 11,
-              fill: 26316,
+              fill: 0,
               fontFamily: "monospace"
             }
           });
-      upText.x = 10.0;
-      upText.y = 3.0;
-      upItem.addChild(upText);
-      upItem.on("pointertap", (function (param) {
-              var parts = currentPath.contents.split("\\").filter(function (p) {
-                    return p !== "";
-                  });
-              parts.pop();
-              currentPath.contents = parts.length === 0 ? "C:\\" : parts.join("\\");
-              renderDir();
+      itemText.x = 10.0;
+      itemText.y = 3.0;
+      item.addChild(itemText);
+      item.on("pointertap", (function (param) {
+              var parts = currentPath.contents.split("\\");
+              var newParts = parts.slice(0, parts.length - 1 | 0);
+              var newPath = newParts.length <= 1 ? "C:\\" : newParts.join("\\");
+              currentPath.contents = newPath;
+              pathText.text = "Path: " + currentPath.contents;
+              renderDirectory();
             }));
-      fileList.addChild(upItem);
+      fileList.addChild(item);
+      yOffset.contents = yOffset.contents + 22.0;
     }
-    var items = LaptopState.listDir(laptop.state.filesystem, currentPath.contents);
-    if (items === undefined) {
+    var items = DeviceView.listFiles(laptop.state.ipAddress, currentPath.contents);
+    if (items !== undefined) {
+      items.forEach(function (param) {
+            var sizeMB = param[3];
+            var isLocked = param[2];
+            var isDir = param[1];
+            var itemName = param[0];
+            var itemContainer = new PixiJs.Container();
+            itemContainer.y = yOffset.contents;
+            itemContainer.eventMode = "static";
+            itemContainer.cursor = "pointer";
+            var itemBg = new PixiJs.Graphics();
+            var bgColor = (yOffset.contents / 22.0 | 0) % 2 === 0 ? 16777215 : 16119285;
+            itemBg.rect(0.0, 0.0, 400.0, 20.0).fill({
+                  color: bgColor
+                });
+            itemContainer.addChild(itemBg);
+            var prefix = isDir ? "[DIR]  " : "[FILE] ";
+            var color = isLocked ? 16711680 : 0;
+            var suffix = isLocked ? " [LOCKED]" : "";
+            var sizeStr;
+            if (sizeMB >= 1.0) {
+              sizeStr = " (" + sizeMB.toFixed(1) + " MB)";
+            } else if (sizeMB > 0.0) {
+              var kb = sizeMB * 1024.0;
+              sizeStr = " (" + kb.toFixed(0) + " KB)";
+            } else {
+              sizeStr = "";
+            }
+            var itemText = new PixiJs.Text({
+                  text: prefix + itemName + suffix + sizeStr,
+                  style: {
+                    fontSize: 11,
+                    fill: color,
+                    fontFamily: "monospace"
+                  }
+                });
+            itemText.x = 10.0;
+            itemText.y = 3.0;
+            itemContainer.addChild(itemText);
+            itemContainer.on("pointertap", (function (param) {
+                    if (isDir) {
+                      var newPath = currentPath.contents === "C:\\" ? currentPath.contents + itemName : currentPath.contents + "\\" + itemName;
+                      currentPath.contents = newPath;
+                      pathText.text = "Path: " + currentPath.contents;
+                      return renderDirectory();
+                    }
+                    if (isLocked) {
+                      return ;
+                    }
+                    if (!(itemName.endsWith(".txt") || itemName.endsWith(".log") || itemName.endsWith(".conf") || itemName.endsWith(".key") || itemName.endsWith(".dat") || itemName.endsWith(".json") || itemName.endsWith(".env"))) {
+                      return ;
+                    }
+                    var fullPath = currentPath.contents === "C:\\" ? currentPath.contents + itemName : currentPath.contents + "\\" + itemName;
+                    openNotepad(laptop, desktop, fullPath, undefined);
+                  }));
+            fileList.addChild(itemContainer);
+            yOffset.contents = yOffset.contents + 22.0;
+          });
       return ;
     }
-    var yOffset = {
-      contents: currentPath.contents !== "C:" && currentPath.contents !== "C:\\" ? 22.0 : 0.0
-    };
-    items.forEach(function (param) {
-          var isLocked = param[2];
-          var isDir = param[1];
-          var name = param[0];
-          var item = new PixiJs.Container();
-          item.y = yOffset.contents;
-          item.eventMode = "static";
-          item.cursor = "pointer";
-          var itemBg = new PixiJs.Graphics();
-          var bgColor = (yOffset.contents / 22.0 | 0) % 2 === 0 ? 16777215 : 16119285;
-          itemBg.rect(0.0, 0.0, 400.0, 20.0).fill({
-                color: bgColor
-              });
-          item.addChild(itemBg);
-          var prefix = isDir ? "[DIR] " : "[FILE]";
-          var color = isLocked ? 16711680 : (
-              isDir ? 26316 : 0
-            );
-          var suffix = isLocked ? " [LOCKED]" : "";
-          var itemText = new PixiJs.Text({
-                text: prefix + " " + name + suffix,
-                style: {
-                  fontSize: 11,
-                  fill: color,
-                  fontFamily: "monospace"
-                }
-              });
-          itemText.x = 10.0;
-          itemText.y = 3.0;
-          item.addChild(itemText);
-          if (isDir) {
-            item.on("pointertap", (function (param) {
-                    currentPath.contents = currentPath.contents + "\\" + name;
-                    renderDir();
-                  }));
-          } else if (!isLocked) {
-            var fullPath = currentPath.contents + "\\" + name;
-            if (name.endsWith(".txt") || name.endsWith(".log") || name.endsWith(".conf") || name.endsWith(".key") || name.endsWith(".dat") || name.endsWith(".sys")) {
-              item.on("pointertap", (function (param) {
-                      openNotepad(laptop, desktop, fullPath, undefined);
-                    }));
-            }
-            
-          }
-          fileList.addChild(item);
-          yOffset.contents = yOffset.contents + 22.0;
-        });
+    
   };
-  pathInput.onEnter.connect(function (newPath) {
-        var match = LaptopState.resolvePath(laptop.state.filesystem, newPath);
-        if (match === undefined) {
-          return ;
-        }
-        if (match.TAG !== "Dir") {
-          return ;
-        }
-        currentPath.contents = newPath;
-        renderDir();
-      });
-  renderDir();
+  renderDirectory();
   desktop.addChild(win.container);
+}
+
+function getGlobalManager(prim) {
+  return GlobalNetworkManagerResMjs.get();
+}
+
+var getDevicesFromManager = (function(manager) {
+    return Object.values(manager.devices);
+  });
+
+function isReachableFromManager(prim0, prim1, prim2) {
+  return NetworkManagerResMjs.isReachableFrom(prim0, prim1, prim2);
 }
 
 function openNetworkManager(laptop, desktop) {
   var pid = LaptopState.openApp(laptop.state.processManager, "netman.exe");
-  var win = make("Network Manager", 400.0, 300.0, "Network Manager", (function () {
+  var win = make("Network Topology", 700.0, 500.0, "Network Topology", (function () {
           LaptopState.closeApp(laptop.state.processManager, "netman.exe");
         }), undefined);
   LaptopState.registerWindowCloser(laptop.state.processManager, pid, (function () {
           win.container.destroy();
         }));
-  win.container.x = 180.0;
-  win.container.y = 120.0;
+  win.container.x = 100.0;
+  win.container.y = 50.0;
   var content = win.content;
-  var header = new PixiJs.Text({
-        text: "Network Connections",
+  var manager = GlobalNetworkManagerResMjs.get();
+  var allDevices = getDevicesFromManager(manager);
+  var sourceIp = laptop.state.ipAddress;
+  var devices = allDevices.filter(function (device) {
+        var info = device.getInfo();
+        return NetworkManagerResMjs.isReachableFrom(manager, sourceIp, info.ipAddress);
+      });
+  var lanDevices = {
+    contents: []
+  };
+  var ruralDevices = {
+    contents: []
+  };
+  var dmzDevices = {
+    contents: []
+  };
+  var internalDevices = {
+    contents: []
+  };
+  var devDevices = {
+    contents: []
+  };
+  var securityDevices = {
+    contents: []
+  };
+  var managementDevices = {
+    contents: []
+  };
+  var iotDevices = {
+    contents: []
+  };
+  var scadaDevices = {
+    contents: []
+  };
+  var atlasDevices = {
+    contents: []
+  };
+  var nexusDevices = {
+    contents: []
+  };
+  var devhubDevices = {
+    contents: []
+  };
+  devices.forEach(function (device) {
+        var info = device.getInfo();
+        var ip = info.ipAddress;
+        var name = info.name;
+        var deviceType = info.deviceType;
+        if (deviceType !== "Router") {
+          if (ip.startsWith("192.168.1.")) {
+            lanDevices.contents = lanDevices.contents.concat([[
+                    ip,
+                    name,
+                    deviceType
+                  ]]);
+            return ;
+          } else if (ip.startsWith("192.168.2.")) {
+            ruralDevices.contents = ruralDevices.contents.concat([[
+                    ip,
+                    name,
+                    deviceType
+                  ]]);
+            return ;
+          } else if (ip.startsWith("10.0.0.")) {
+            dmzDevices.contents = dmzDevices.contents.concat([[
+                    ip,
+                    name,
+                    deviceType
+                  ]]);
+            return ;
+          } else if (ip.startsWith("10.0.1.")) {
+            internalDevices.contents = internalDevices.contents.concat([[
+                    ip,
+                    name,
+                    deviceType
+                  ]]);
+            return ;
+          } else if (ip.startsWith("10.0.2.")) {
+            devDevices.contents = devDevices.contents.concat([[
+                    ip,
+                    name,
+                    deviceType
+                  ]]);
+            return ;
+          } else if (ip.startsWith("10.0.3.")) {
+            securityDevices.contents = securityDevices.contents.concat([[
+                    ip,
+                    name,
+                    deviceType
+                  ]]);
+            return ;
+          } else if (ip.startsWith("172.16.0.")) {
+            managementDevices.contents = managementDevices.contents.concat([[
+                    ip,
+                    name,
+                    deviceType
+                  ]]);
+            return ;
+          } else if (ip.startsWith("192.168.100.")) {
+            iotDevices.contents = iotDevices.contents.concat([[
+                    ip,
+                    name,
+                    deviceType
+                  ]]);
+            return ;
+          } else if (ip.startsWith("10.10.1.")) {
+            scadaDevices.contents = scadaDevices.contents.concat([[
+                    ip,
+                    name,
+                    deviceType
+                  ]]);
+            return ;
+          } else if (ip.startsWith("8.8.8.") || ip.startsWith("142.250.")) {
+            atlasDevices.contents = atlasDevices.contents.concat([[
+                    ip,
+                    name,
+                    deviceType
+                  ]]);
+            return ;
+          } else if (ip.startsWith("1.1.1.") || ip.startsWith("104.16.")) {
+            nexusDevices.contents = nexusDevices.contents.concat([[
+                    ip,
+                    name,
+                    deviceType
+                  ]]);
+            return ;
+          } else if (ip.startsWith("140.82.")) {
+            devhubDevices.contents = devhubDevices.contents.concat([[
+                    ip,
+                    name,
+                    deviceType
+                  ]]);
+            return ;
+          } else {
+            return ;
+          }
+        }
+        
+      });
+  var connectionLayer = new PixiJs.Graphics();
+  content.addChild(connectionLayer);
+  var drawRouter = function (x, y, label, color) {
+    var icon = new PixiJs.Graphics();
+    icon.circle(0.0, 0.0, 8.0).fill({
+            color: color
+          }).stroke({
+          color: 0,
+          width: 1.5
+        });
+    icon.x = x;
+    icon.y = y;
+    content.addChild(icon);
+    var text = new PixiJs.Text({
+          text: label,
+          style: {
+            fontSize: 7,
+            fill: 0,
+            fontWeight: "bold",
+            align: "center"
+          }
+        });
+    text.x = x - 25.0;
+    text.y = y + 10.0;
+    content.addChild(text);
+  };
+  var drawConnection = function (x1, y1, x2, y2, color, width) {
+    connectionLayer.moveTo(x1, y1).lineTo(x2, y2).stroke({
+          color: color,
+          width: width,
+          alpha: 0.6
+        });
+  };
+  drawRouter(80.0, 120.0, "Downtown\nRouter", 16750592);
+  drawRouter(80.0, 280.0, "Rural\nRouter", 16750592);
+  drawRouter(200.0, 80.0, "Business\nISP", 16776960);
+  drawRouter(200.0, 240.0, "Rural\nISP", 16776960);
+  drawRouter(300.0, 160.0, "Regional\nISP", 16750592);
+  drawRouter(400.0, 160.0, "Internet\nBackbone", 16711680);
+  drawRouter(550.0, 80.0, "Atlas", 4359668);
+  drawRouter(550.0, 200.0, "Nexus", 15958048);
+  drawRouter(550.0, 320.0, "DevHub", 6710886);
+  drawConnection(80.0, 120.0, 200.0, 80.0, 16776960, 2.0);
+  drawConnection(80.0, 280.0, 200.0, 240.0, 16776960, 2.0);
+  drawConnection(200.0, 80.0, 300.0, 160.0, 16750592, 2.5);
+  drawConnection(200.0, 240.0, 300.0, 160.0, 16750592, 2.5);
+  drawConnection(300.0, 160.0, 400.0, 160.0, 16711680, 3.0);
+  drawConnection(400.0, 160.0, 550.0, 80.0, 16777215, 2.0);
+  drawConnection(400.0, 160.0, 550.0, 200.0, 16777215, 2.0);
+  drawConnection(400.0, 160.0, 550.0, 320.0, 16777215, 2.0);
+  var downtownDevices = lanDevices.contents.concat(dmzDevices.contents.concat(internalDevices.contents.concat(devDevices.contents.concat(securityDevices.contents.concat(managementDevices.contents.concat(iotDevices.contents.concat(scadaDevices.contents)))))));
+  downtownDevices.forEach(function (param, i) {
+        var angle = i * (6.28 / downtownDevices.length);
+        var dx = 80.0 + 35.0 * Math.cos(angle);
+        var dy = 120.0 + 35.0 * Math.sin(angle);
+        var dot = new PixiJs.Graphics();
+        dot.circle(0.0, 0.0, 2.0).fill({
+              color: 5025616
+            });
+        dot.x = dx;
+        dot.y = dy;
+        content.addChild(dot);
+        drawConnection(80.0, 120.0, dx, dy, 5025616, 1.0);
+      });
+  ruralDevices.contents.forEach(function (param, i) {
+        var dx = 80.0 + 30.0;
+        var dy = 280.0 + 25.0 + i * 12.0;
+        var dot = new PixiJs.Graphics();
+        dot.circle(0.0, 0.0, 2.0).fill({
+              color: 5025616
+            });
+        dot.x = dx;
+        dot.y = dy;
+        content.addChild(dot);
+        drawConnection(80.0, 280.0, dx, dy, 5025616, 1.0);
+      });
+  atlasDevices.contents.forEach(function (param, i) {
+        var dx = 550.0 + 20.0;
+        var dy = 80.0 - 10.0 + i * 12.0;
+        var dot = new PixiJs.Graphics();
+        dot.circle(0.0, 0.0, 2.0).fill({
+              color: 4359668
+            });
+        dot.x = dx;
+        dot.y = dy;
+        content.addChild(dot);
+        drawConnection(550.0, 80.0, dx, dy, 16777215, 1.0);
+      });
+  nexusDevices.contents.forEach(function (param, i) {
+        var dx = 550.0 + 20.0;
+        var dy = 200.0 - 10.0 + i * 12.0;
+        var dot = new PixiJs.Graphics();
+        dot.circle(0.0, 0.0, 2.0).fill({
+              color: 15958048
+            });
+        dot.x = dx;
+        dot.y = dy;
+        content.addChild(dot);
+        drawConnection(550.0, 200.0, dx, dy, 16777215, 1.0);
+      });
+  devhubDevices.contents.forEach(function (param, i) {
+        var dx = 550.0 + 20.0;
+        var dy = 320.0 - 10.0 + i * 12.0;
+        var dot = new PixiJs.Graphics();
+        dot.circle(0.0, 0.0, 2.0).fill({
+              color: 6710886
+            });
+        dot.x = dx;
+        dot.y = dy;
+        content.addChild(dot);
+        drawConnection(550.0, 320.0, dx, dy, 16777215, 1.0);
+      });
+  var legend = new PixiJs.Text({
+        text: "Yellow=Tier3 Orange=Tier2 Red=Tier1 White=Services Green=LAN Blue=VLAN",
         style: {
-          fontSize: 14,
-          fill: 0,
-          fontWeight: "bold"
+          fontSize: 7,
+          fill: 6710886
         }
       });
-  header.x = 10.0;
-  header.y = 10.0;
-  content.addChild(header);
-  var connections = [
-    "WiFi: Connected",
-    "SSID: CorpNetwork-5G",
-    "IP: 192.168.1.102",
-    "Gateway: 192.168.1.1",
-    "DNS: 8.8.8.8, 8.8.4.4",
-    "",
-    "Active Connections:",
-    "- VPN: Disconnected",
-    "- Ethernet: Not connected"
-  ];
-  connections.forEach(function (line, i) {
-        var text = new PixiJs.Text({
-              text: line,
-              style: {
-                fontSize: 11,
-                fill: 0,
-                fontFamily: "monospace"
-              }
-            });
-        text.x = 10.0;
-        text.y = 40.0 + i * 18.0;
-        content.addChild(text);
-      });
+  legend.x = 10.0;
+  legend.y = 470.0;
+  content.addChild(legend);
   desktop.addChild(win.container);
 }
 
@@ -1136,7 +666,7 @@ function openProcessExplorer(laptop, desktop) {
   processList.y = 55.0;
   content.addChild(processList);
   var renderProcesses = function () {
-    var match = LaptopState.getTotalStorageUsage(laptop.state.processManager, laptop.state.filesystem);
+    var match = LaptopState.getTotalStorageUsage(laptop.state.processManager, laptop.state.ipAddress);
     var cpuUsage = LaptopState.getCpuUsage(laptop.state.processManager);
     statsText.text = "Storage: " + match[0].toString() + " Gq / " + match[1].toString() + " Gq   CPU: " + cpuUsage.toFixed(1) + "%";
     processList.removeChildren();
@@ -1208,15 +738,8 @@ function openTerminal(laptop, desktop) {
   win.container.x = 140.0;
   win.container.y = 60.0;
   var content = win.content;
-  var rdpCallback = function (remoteState, remoteHost) {
-    var openRdp = openRemoteDesktopRef.contents;
-    if (openRdp !== undefined) {
-      return openRdp(laptop, desktop, remoteState, remoteHost);
-    }
-    
-  };
-  var terminal = createLaptopTerminal(laptop.state, 490.0, 345.0, rdpCallback, undefined);
-  content.addChild(terminal);
+  var terminal = Terminal.make(490.0, 345.0, laptop.state.hostname + "> ", laptop.state.ipAddress, laptop.state, undefined);
+  content.addChild(terminal.container);
   desktop.addChild(win.container);
 }
 
@@ -1468,16 +991,18 @@ function makeWithState(width, height, state, param) {
 function make$1(width, height, ipAddressOpt, hostnameOpt, param) {
   var ipAddress = ipAddressOpt !== undefined ? ipAddressOpt : "192.168.1.102";
   var hostname = hostnameOpt !== undefined ? hostnameOpt : "WORKSTATION-PC";
-  var state = LaptopState.createLaptopState(ipAddress, hostname, undefined);
+  var state = LaptopState.createLaptopState(ipAddress, hostname, undefined, undefined);
   return makeWithStateInternal(width, height, state, undefined);
 }
 
 export {
   AppWindow ,
   splitPath ,
-  createLaptopTerminal ,
   openNotepad ,
   openFileManager ,
+  getGlobalManager ,
+  getDevicesFromManager ,
+  isReachableFromManager ,
   openNetworkManager ,
   $$setInterval ,
   $$clearInterval ,

@@ -1,0 +1,1 @@
+src/app/screens/locations/LocationBase.cmj : src/app/screens/LocationData.cmj src/app/screens/LocationData.cmi src/engine/navigation/Navigation.cmj src/engine/navigation/Navigation.cmi src/app/screens/WorldBuilder.cmj src/app/screens/WorldBuilder.cmi

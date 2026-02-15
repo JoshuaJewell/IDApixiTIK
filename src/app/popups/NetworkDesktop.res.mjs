@@ -4,9 +4,12 @@ import * as Button from "../ui/Button.res.mjs";
 import * as Motion from "../../bindings/Motion.res.mjs";
 import * as PixiJs from "pixi.js";
 import * as GetEngine from "../GetEngine.res.mjs";
+import * as Core__Dict from "@rescript/core/src/Core__Dict.res.mjs";
 import * as $$Navigation from "../../engine/navigation/Navigation.res.mjs";
+import * as Core__Array from "@rescript/core/src/Core__Array.res.mjs";
 import * as DeviceTypes from "../devices/types/DeviceTypes.res.mjs";
 import * as LaptopState from "../devices/LaptopState.res.mjs";
+import * as Core__Option from "@rescript/core/src/Core__Option.res.mjs";
 import * as RouterDevice from "../devices/RouterDevice.res.mjs";
 import * as DesktopDevice from "../devices/DesktopDevice.res.mjs";
 import * as NetworkManager from "../devices/NetworkManager.res.mjs";
@@ -15,16 +18,38 @@ import * as GlobalNetworkManager from "../devices/GlobalNetworkManager.res.mjs";
 var assetBundles = ["desktop"];
 
 function getZone(ip) {
-  if (ip.startsWith("192.168.")) {
+  if (ip.startsWith("192.168.1.")) {
     return "LAN";
+  } else if (ip.startsWith("192.168.2.")) {
+    return "Rural";
   } else if (ip.startsWith("10.0.0.")) {
-    return "VLAN";
+    return "DMZ";
+  } else if (ip.startsWith("10.0.1.")) {
+    return "Internal";
+  } else if (ip.startsWith("10.0.2.")) {
+    return "Dev";
+  } else if (ip.startsWith("10.0.3.")) {
+    return "Security";
+  } else if (ip.startsWith("172.16.0.")) {
+    return "Management";
+  } else if (ip.startsWith("192.168.100.")) {
+    return "IoT";
+  } else if (ip.startsWith("10.10.1.")) {
+    return "SCADA";
+  } else if (ip.startsWith("100.64.") || ip.startsWith("198.51.100.") || ip.startsWith("203.0.113.")) {
+    return "ISP";
+  } else if (ip.startsWith("8.8.8.") || ip.startsWith("142.250.")) {
+    return "Atlas";
+  } else if (ip.startsWith("1.1.1.") || ip.startsWith("104.16.")) {
+    return "Nexus";
+  } else if (ip.startsWith("140.82.")) {
+    return "DevHub";
   } else {
     return "External";
   }
 }
 
-function createDeviceGraphic(deviceType, iconBg) {
+function createDeviceGraphic(deviceType, ipAddress, iconBg) {
   var indicator = new PixiJs.Graphics();
   switch (deviceType) {
     case "Laptop" :
@@ -36,12 +61,49 @@ function createDeviceGraphic(deviceType, iconBg) {
             });
         break;
     case "Router" :
-        indicator.circle(40.0, 40.0, 15.0).fill({
-              color: 16777215
-            });
-        indicator.rect(38.0, 25.0, 4.0, 15.0).fill({
-              color: 16777215
-            });
+        if (ipAddress.startsWith("10.0.0.1") || ipAddress.startsWith("10.0.1.1")) {
+          indicator.rect(25.0, 25.0, 30.0, 8.0).fill({
+                color: 16777215
+              });
+          indicator.rect(25.0, 35.0, 12.0, 8.0).fill({
+                color: 16777215
+              });
+          indicator.rect(40.0, 35.0, 15.0, 8.0).fill({
+                color: 16777215
+              });
+          indicator.rect(25.0, 45.0, 30.0, 8.0).fill({
+                color: 16777215
+              });
+          indicator.rect(25.0, 33.0, 30.0, 2.0).fill({
+                color: 10066329
+              });
+          indicator.rect(25.0, 43.0, 30.0, 2.0).fill({
+                color: 10066329
+              });
+          indicator.rect(37.0, 35.0, 3.0, 8.0).fill({
+                color: 10066329
+              });
+        } else if (ipAddress.startsWith("100.64.") || ipAddress.startsWith("198.51.100.") || ipAddress.startsWith("203.0.113.")) {
+          indicator.circle(35.0, 42.0, 8.0).fill({
+                color: 16777215
+              });
+          indicator.circle(45.0, 42.0, 8.0).fill({
+                color: 16777215
+              });
+          indicator.circle(40.0, 36.0, 10.0).fill({
+                color: 16777215
+              });
+          indicator.rect(28.0, 42.0, 25.0, 8.0).fill({
+                color: 16777215
+              });
+        } else {
+          indicator.circle(40.0, 40.0, 15.0).fill({
+                color: 16777215
+              });
+          indicator.rect(38.0, 25.0, 4.0, 15.0).fill({
+                color: 16777215
+              });
+        }
         break;
     case "Server" :
         indicator.rect(20.0, 25.0, 40.0, 8.0).fill({
@@ -120,15 +182,20 @@ function make(networkManager, ipAddress) {
   container.eventMode = "static";
   container.cursor = "pointer";
   var iconBg = new PixiJs.Graphics();
+  var bgColor = info.deviceType === "Router" ? (
+      ipAddress.startsWith("10.0.0.1") || ipAddress.startsWith("10.0.1.1") ? 13840175 : (
+          ipAddress.startsWith("100.64.") || ipAddress.startsWith("198.51.100.") || ipAddress.startsWith("203.0.113.") ? 1668818 : DeviceTypes.getDeviceColor(info.deviceType)
+        )
+    ) : DeviceTypes.getDeviceColor(info.deviceType);
   iconBg.rect(0.0, 0.0, 80.0, 80.0).fill({
-        color: DeviceTypes.getDeviceColor(info.deviceType)
+        color: bgColor
       });
   iconBg.rect(2.0, 2.0, 76.0, 76.0).stroke({
         width: 2,
         color: 0
       });
   container.addChild(iconBg);
-  createDeviceGraphic(info.deviceType, iconBg);
+  createDeviceGraphic(info.deviceType, ipAddress, iconBg);
   var securityDot = new PixiJs.Graphics();
   securityDot.circle(70.0, 10.0, 5.0).fill({
         color: DeviceTypes.getSecurityColor(info.securityLevel)
@@ -184,6 +251,89 @@ var DeviceIcon = {
   make: make
 };
 
+function calculateDeviceSpacing(deviceCount) {
+  if (deviceCount <= 3) {
+    return 100.0;
+  } else if (deviceCount <= 6) {
+    return 100.0 * 1.15;
+  } else if (deviceCount <= 10) {
+    return 100.0 * 1.3;
+  } else {
+    return 100.0 * 1.4;
+  }
+}
+
+function calculateTotalHeight(deviceCount) {
+  if (deviceCount <= 1) {
+    return 0.0;
+  }
+  var spacing = calculateDeviceSpacing(deviceCount);
+  return (deviceCount - 1 | 0) * spacing;
+}
+
+function buildTree(rootIP, allEdges) {
+  var buildNode = function (ip, visited) {
+    visited[ip] = true;
+    var childIPs = Core__Array.filterMap(allEdges, (function (edge) {
+            if (edge.source === ip && !Core__Option.getOr(visited[edge.target], false)) {
+              return edge.target;
+            }
+            
+          }));
+    var children = childIPs.map(function (childIP) {
+          return buildNode(childIP, visited);
+        });
+    return {
+            ip: ip,
+            children: children,
+            x: 0.0,
+            y: 0.0,
+            subtreeHeight: 0.0
+          };
+  };
+  return buildNode(rootIP, {});
+}
+
+function calculateSubtreeHeights(node) {
+  var childCount = node.children.length;
+  if (childCount === 0) {
+    node.subtreeHeight = 0.0;
+    return 0.0;
+  }
+  var childHeights = node.children.map(calculateSubtreeHeights);
+  var totalChildHeight = Core__Array.reduce(childHeights, 0.0, (function (acc, h) {
+          return acc + h;
+        }));
+  var spacingBetweenChildren = (childCount - 1 | 0) * 120.0;
+  var height = totalChildHeight + spacingBetweenChildren;
+  node.subtreeHeight = height;
+  return height;
+}
+
+function layoutNode(node, x, y, direction, nodes) {
+  node.x = x;
+  node.y = y;
+  nodes[node.ip] = {
+    ip: node.ip,
+    x: x,
+    y: y
+  };
+  var childCount = node.children.length;
+  if (childCount <= 0) {
+    return ;
+  }
+  var childX = direction === "Left" ? x - 240.0 : x + 240.0;
+  var startY = y - node.subtreeHeight / 2.0;
+  var currentY = {
+    contents: startY
+  };
+  node.children.forEach(function (child) {
+        var childCenterY = currentY.contents + child.subtreeHeight / 2.0;
+        layoutNode(child, childX, childCenterY, direction, nodes);
+        currentY.contents = currentY.contents + child.subtreeHeight + 120.0;
+      });
+}
+
 function make$1() {
   var container = new PixiJs.Container();
   container.sortableChildren = true;
@@ -225,19 +375,110 @@ function make$1() {
         
       });
   container.addChild(closeButton);
+  var topologyContainer = new PixiJs.Container();
+  container.addChild(topologyContainer);
   var topologyLines = new PixiJs.Graphics();
-  container.addChild(topologyLines);
+  topologyContainer.addChild(topologyLines);
+  var legendContainer = new PixiJs.Container();
+  container.addChild(legendContainer);
+  var scale = {
+    contents: 1.0
+  };
+  var dragStartX = {
+    contents: 0.0
+  };
+  var dragStartY = {
+    contents: 0.0
+  };
+  var isDragging = {
+    contents: false
+  };
+  var totalRingHeightRef = {
+    contents: 1000.0
+  };
   var lanIcons = {
     contents: []
   };
-  var vlanIcons = {
+  var ruralIcons = {
+    contents: []
+  };
+  var dmzIcons = {
+    contents: []
+  };
+  var internalIcons = {
+    contents: []
+  };
+  var devIcons = {
+    contents: []
+  };
+  var securityIcons = {
+    contents: []
+  };
+  var managementIcons = {
+    contents: []
+  };
+  var iotIcons = {
+    contents: []
+  };
+  var scadaIcons = {
+    contents: []
+  };
+  var atlasIcons = {
+    contents: []
+  };
+  var nexusIcons = {
+    contents: []
+  };
+  var devhubIcons = {
     contents: []
   };
   var externalIcons = {
     contents: []
   };
-  var routerIcon = {
+  var mainRouterIcon = {
     contents: undefined
+  };
+  var ruralRouterIcon = {
+    contents: undefined
+  };
+  var iotRouterIcon = {
+    contents: undefined
+  };
+  var ruralIspIcon = {
+    contents: undefined
+  };
+  var businessIspIcon = {
+    contents: undefined
+  };
+  var regionalIspIcon = {
+    contents: undefined
+  };
+  var naBackboneIcon = {
+    contents: undefined
+  };
+  var euBackboneIcon = {
+    contents: undefined
+  };
+  var asiaBackboneIcon = {
+    contents: undefined
+  };
+  var saBackboneIcon = {
+    contents: undefined
+  };
+  var afBackboneIcon = {
+    contents: undefined
+  };
+  var atlasRouterIcon = {
+    contents: undefined
+  };
+  var nexusRouterIcon = {
+    contents: undefined
+  };
+  var devhubRouterIcon = {
+    contents: undefined
+  };
+  var allCreatedIcons = {
+    contents: []
   };
   var devices = NetworkManager.getAllDevices(networkManager);
   devices.forEach(function (device) {
@@ -246,26 +487,112 @@ function make$1() {
         if (icon === undefined) {
           return ;
         }
-        container.addChild(icon.container);
-        var match = info.deviceType;
-        if (match === "Router") {
-          routerIcon.contents = icon;
+        topologyContainer.addChild(icon.container);
+        allCreatedIcons.contents.push([
+              info.ipAddress,
+              icon
+            ]);
+        if (info.ipAddress === "192.168.1.1") {
+          mainRouterIcon.contents = icon;
           return ;
         }
-        var match$1 = icon.zone;
-        switch (match$1) {
+        if (info.ipAddress === "192.168.2.1") {
+          ruralRouterIcon.contents = icon;
+          return ;
+        }
+        if (info.ipAddress === "192.168.100.1") {
+          iotRouterIcon.contents = icon;
+          return ;
+        }
+        if (info.ipAddress === "100.64.1.1") {
+          ruralIspIcon.contents = icon;
+          return ;
+        }
+        if (info.ipAddress === "100.64.2.1") {
+          businessIspIcon.contents = icon;
+          return ;
+        }
+        if (info.ipAddress === "198.51.100.1") {
+          regionalIspIcon.contents = icon;
+          return ;
+        }
+        if (info.ipAddress === "203.0.113.1") {
+          naBackboneIcon.contents = icon;
+          return ;
+        }
+        if (info.ipAddress === "203.0.113.2") {
+          euBackboneIcon.contents = icon;
+          return ;
+        }
+        if (info.ipAddress === "203.0.113.3") {
+          asiaBackboneIcon.contents = icon;
+          return ;
+        }
+        if (info.ipAddress === "203.0.113.4") {
+          saBackboneIcon.contents = icon;
+          return ;
+        }
+        if (info.ipAddress === "203.0.113.5") {
+          afBackboneIcon.contents = icon;
+          return ;
+        }
+        if (info.ipAddress === "8.8.8.1") {
+          atlasRouterIcon.contents = icon;
+          return ;
+        }
+        if (info.ipAddress === "1.1.1.254") {
+          nexusRouterIcon.contents = icon;
+          return ;
+        }
+        if (info.ipAddress === "140.82.121.1") {
+          devhubRouterIcon.contents = icon;
+          return ;
+        }
+        var match = icon.zone;
+        switch (match) {
           case "LAN" :
               lanIcons.contents = lanIcons.contents.concat([icon]);
               return ;
-          case "VLAN" :
-              vlanIcons.contents = vlanIcons.contents.concat([icon]);
+          case "Rural" :
+              ruralIcons.contents = ruralIcons.contents.concat([icon]);
+              return ;
+          case "DMZ" :
+              dmzIcons.contents = dmzIcons.contents.concat([icon]);
+              return ;
+          case "Internal" :
+              internalIcons.contents = internalIcons.contents.concat([icon]);
+              return ;
+          case "Dev" :
+              devIcons.contents = devIcons.contents.concat([icon]);
+              return ;
+          case "Security" :
+              securityIcons.contents = securityIcons.contents.concat([icon]);
+              return ;
+          case "Management" :
+              managementIcons.contents = managementIcons.contents.concat([icon]);
+              return ;
+          case "IoT" :
+              iotIcons.contents = iotIcons.contents.concat([icon]);
+              return ;
+          case "SCADA" :
+              scadaIcons.contents = scadaIcons.contents.concat([icon]);
+              return ;
+          case "ISP" :
+              return ;
+          case "Atlas" :
+              atlasIcons.contents = atlasIcons.contents.concat([icon]);
+              return ;
+          case "Nexus" :
+              nexusIcons.contents = nexusIcons.contents.concat([icon]);
+              return ;
+          case "DevHub" :
+              devhubIcons.contents = devhubIcons.contents.concat([icon]);
               return ;
           case "External" :
-          case "Internet" :
-              break;
+              externalIcons.contents = externalIcons.contents.concat([icon]);
+              return ;
           
         }
-        externalIcons.contents = externalIcons.contents.concat([icon]);
       });
   return {
           container: container,
@@ -323,74 +650,780 @@ function make$1() {
               topologyLines.clear();
               var iconCenterX = 80.0 / 2.0;
               var iconCenterY = 80.0 / 2.0;
-              var routerY = height / 2.0 - 40.0;
-              var router = routerIcon.contents;
-              if (router !== undefined) {
-                router.container.x = 150.0;
-                router.container.y = routerY;
-              }
-              var drawLine = function (toX, toY, color) {
-                var fromX = 150.0 + iconCenterX;
-                var fromY = routerY + iconCenterY;
-                topologyLines.moveTo(fromX, fromY).lineTo(toX + iconCenterX, toY + iconCenterY).stroke({
-                      width: 2,
-                      color: color,
-                      alpha: 0.5
+              var edgeCounter = {};
+              var nodes = {};
+              var edges = [];
+              var addNode = function (ip, x, y) {
+                nodes[ip] = {
+                  ip: ip,
+                  x: x,
+                  y: y
+                };
+              };
+              var addEdge = function (parent, child, strengthOpt, param) {
+                var strength = strengthOpt !== undefined ? strengthOpt : 1.0;
+                edges.push({
+                      source: parent,
+                      target: child,
+                      strength: strength
                     });
               };
-              lanIcons.contents.forEach(function (icon, i) {
-                    var posX = 50.0 + i * 110.0;
-                    icon.container.x = posX;
-                    icon.container.y = 50.0;
-                    drawLine(posX, 50.0, 65280);
+              var centerX = width * 0.5;
+              var centerY = height * 0.5;
+              var backboneRing = [
+                [
+                  "203.0.113.1",
+                  "NA-BACKBONE"
+                ],
+                [
+                  "203.0.113.2",
+                  "EU-BACKBONE"
+                ],
+                [
+                  "203.0.113.3",
+                  "ASIA-BACKBONE"
+                ],
+                [
+                  "203.0.113.4",
+                  "SA-BACKBONE"
+                ],
+                [
+                  "203.0.113.5",
+                  "AF-BACKBONE"
+                ]
+              ];
+              var backboneIPs = backboneRing.map(function (param) {
+                    return param[0];
                   });
-              var vlanY = height - 130.0 - 20.0;
-              vlanIcons.contents.forEach(function (icon, i) {
-                    var posX = 50.0 + i * 110.0;
-                    icon.container.x = posX;
-                    icon.container.y = vlanY;
-                    drawLine(posX, vlanY, 16750848);
+              backboneIPs.forEach(function (ip, i) {
+                    if (i >= (backboneIPs.length - 1 | 0)) {
+                      return ;
+                    }
+                    var nextIP = backboneIPs[i + 1 | 0];
+                    addEdge(ip, nextIP, 5.0, undefined);
                   });
-              var externalX = width - 110.0 - 50.0;
-              externalIcons.contents.forEach(function (icon, i) {
-                    var posY = 50.0 + i * 130.0;
-                    icon.container.x = externalX;
-                    icon.container.y = posY;
-                    drawLine(externalX, posY, 43775);
+              addEdge("203.0.113.1", "198.51.100.1", 4.0, undefined);
+              addEdge("198.51.100.1", "100.64.2.1", 3.0, undefined);
+              addEdge("198.51.100.1", "100.64.1.1", 3.0, undefined);
+              addEdge("100.64.2.1", "192.168.1.1", 3.0, undefined);
+              addEdge("100.64.1.1", "192.168.2.1", 3.0, undefined);
+              addEdge("192.168.1.1", "10.0.0.1", 2.0, undefined);
+              addEdge("192.168.1.1", "192.168.100.1", 2.0, undefined);
+              lanIcons.contents.forEach(function (icon) {
+                    addEdge("192.168.1.1", icon.ipAddress, undefined, undefined);
                   });
-              var labelStyle = {
-                fontSize: 14,
-                fill: 6710886,
-                fontWeight: "bold"
+              addEdge("10.0.0.1", "10.0.1.1", 2.0, undefined);
+              dmzIcons.contents.forEach(function (icon) {
+                    if (icon.ipAddress !== "10.0.0.1") {
+                      return addEdge("10.0.0.1", icon.ipAddress, undefined, undefined);
+                    }
+                    
+                  });
+              internalIcons.contents.forEach(function (icon) {
+                    if (icon.ipAddress !== "10.0.1.1") {
+                      return addEdge("10.0.1.1", icon.ipAddress, undefined, undefined);
+                    }
+                    
+                  });
+              devIcons.contents.forEach(function (icon) {
+                    addEdge("10.0.1.1", icon.ipAddress, undefined, undefined);
+                  });
+              securityIcons.contents.forEach(function (icon) {
+                    addEdge("10.0.1.1", icon.ipAddress, undefined, undefined);
+                  });
+              managementIcons.contents.forEach(function (icon) {
+                    addEdge("10.0.1.1", icon.ipAddress, undefined, undefined);
+                  });
+              iotIcons.contents.forEach(function (icon) {
+                    addEdge("192.168.100.1", icon.ipAddress, undefined, undefined);
+                  });
+              ruralIcons.contents.forEach(function (icon) {
+                    addEdge("192.168.2.1", icon.ipAddress, undefined, undefined);
+                  });
+              addEdge("203.0.113.1", "8.8.8.1", 3.0, undefined);
+              addEdge("203.0.113.2", "1.1.1.254", 3.0, undefined);
+              addEdge("203.0.113.3", "140.82.121.1", 3.0, undefined);
+              atlasIcons.contents.forEach(function (icon) {
+                    addEdge("8.8.8.1", icon.ipAddress, undefined, undefined);
+                  });
+              nexusIcons.contents.forEach(function (icon) {
+                    addEdge("1.1.1.254", icon.ipAddress, undefined, undefined);
+                  });
+              devhubIcons.contents.forEach(function (icon) {
+                    addEdge("140.82.121.1", icon.ipAddress, undefined, undefined);
+                  });
+              externalIcons.contents.forEach(function (icon) {
+                    addEdge("203.0.113.1", icon.ipAddress, undefined, undefined);
+                  });
+              var treeEdges = edges.filter(function (edge) {
+                    return !(backboneIPs.includes(edge.source) && backboneIPs.includes(edge.target));
+                  });
+              var backboneLayouts = backboneIPs.map(function (backboneIP) {
+                    var backboneTree = buildTree(backboneIP, treeEdges);
+                    var leftChildren = backboneTree.children.filter(function (child) {
+                          if (child.ip.startsWith("198.51.100.")) {
+                            return true;
+                          } else {
+                            return child.ip.startsWith("100.64.");
+                          }
+                        });
+                    var rightChildren = backboneTree.children.filter(function (child) {
+                          if (child.ip.startsWith("8.8.8.") || child.ip.startsWith("1.1.1.") || child.ip.startsWith("140.82.") || child.ip.startsWith("104.16.") || child.ip.startsWith("142.250.")) {
+                            return true;
+                          } else {
+                            return externalIcons.contents.some(function (icon) {
+                                        return icon.ipAddress === child.ip;
+                                      });
+                          }
+                        });
+                    var leftHeight;
+                    if (leftChildren.length > 0) {
+                      var heights = leftChildren.map(calculateSubtreeHeights);
+                      leftHeight = Core__Array.reduce(heights, 0.0, (function (acc, h) {
+                              return acc + h;
+                            })) + (leftChildren.length - 1 | 0) * 120.0;
+                    } else {
+                      leftHeight = 0.0;
+                    }
+                    var rightHeight;
+                    if (rightChildren.length > 0) {
+                      var heights$1 = rightChildren.map(calculateSubtreeHeights);
+                      rightHeight = Core__Array.reduce(heights$1, 0.0, (function (acc, h) {
+                              return acc + h;
+                            })) + (rightChildren.length - 1 | 0) * 120.0;
+                    } else {
+                      rightHeight = 0.0;
+                    }
+                    var totalHeight = Math.max(leftHeight, rightHeight);
+                    return {
+                            ip: backboneIP,
+                            leftHeight: leftHeight,
+                            rightHeight: rightHeight,
+                            totalHeight: totalHeight
+                          };
+                  });
+              var backbonePositions = [];
+              var currentY = {
+                contents: 0.0
               };
-              var lanLabel = new PixiJs.Text({
-                    text: "LOCAL NETWORK (192.168.1.x)",
-                    style: labelStyle
+              backboneLayouts.forEach(function (layout, i) {
+                    backbonePositions.push(currentY.contents);
+                    if (i >= (backboneLayouts.length - 1 | 0)) {
+                      return ;
+                    }
+                    var nextSpacing = Math.max(layout.totalHeight, 200.0);
+                    currentY.contents = currentY.contents + nextSpacing;
                   });
-              lanLabel.x = 50.0;
-              lanLabel.y = 50.0 - 25.0;
-              topologyLines.addChild(lanLabel);
-              var vlanLabel = new PixiJs.Text({
-                    text: "CORPORATE VLAN (10.0.0.x)",
-                    style: labelStyle
+              var totalRingHeight = currentY.contents + Math.max(backboneLayouts[backboneLayouts.length - 1 | 0].totalHeight, 200.0);
+              totalRingHeightRef.contents = totalRingHeight;
+              ((console.log("Total ring height calculated: " + totalRingHeight)));
+              var verticalOffset = centerY - totalRingHeight / 2.0;
+              backboneIPs.forEach(function (backboneIP, i) {
+                    var backboneY = backbonePositions[i] + verticalOffset;
+                    var layout = backboneLayouts[i];
+                    addNode(backboneIP, centerX, backboneY);
+                    var backboneTree = buildTree(backboneIP, treeEdges);
+                    var leftChildren = backboneTree.children.filter(function (child) {
+                          if (child.ip.startsWith("198.51.100.")) {
+                            return true;
+                          } else {
+                            return child.ip.startsWith("100.64.");
+                          }
+                        });
+                    var rightChildren = backboneTree.children.filter(function (child) {
+                          if (child.ip.startsWith("8.8.8.") || child.ip.startsWith("1.1.1.") || child.ip.startsWith("140.82.") || child.ip.startsWith("104.16.") || child.ip.startsWith("142.250.")) {
+                            return true;
+                          } else {
+                            return externalIcons.contents.some(function (icon) {
+                                        return icon.ipAddress === child.ip;
+                                      });
+                          }
+                        });
+                    if (leftChildren.length > 0) {
+                      var leftStartY = backboneY - layout.leftHeight / 2.0;
+                      var currentY = {
+                        contents: leftStartY
+                      };
+                      leftChildren.forEach(function (child) {
+                            calculateSubtreeHeights(child);
+                            var childCenterY = currentY.contents + child.subtreeHeight / 2.0;
+                            layoutNode(child, centerX - 240.0, childCenterY, "Left", nodes);
+                            currentY.contents = currentY.contents + child.subtreeHeight + 120.0;
+                          });
+                    }
+                    if (rightChildren.length <= 0) {
+                      return ;
+                    }
+                    var rightStartY = backboneY - layout.rightHeight / 2.0;
+                    var currentY$1 = {
+                      contents: rightStartY
+                    };
+                    rightChildren.forEach(function (child) {
+                          calculateSubtreeHeights(child);
+                          var childCenterY = currentY$1.contents + child.subtreeHeight / 2.0;
+                          layoutNode(child, centerX + 240.0, childCenterY, "Right", nodes);
+                          currentY$1.contents = currentY$1.contents + child.subtreeHeight + 120.0;
+                        });
                   });
-              vlanLabel.x = 50.0;
-              vlanLabel.y = vlanY - 25.0;
-              topologyLines.addChild(vlanLabel);
-              var extLabel = new PixiJs.Text({
-                    text: "INTERNET",
-                    style: labelStyle
+              var originalNodes = Object.entries(nodes);
+              originalNodes.forEach(function (param) {
+                    var node = param[1];
+                    var ip = param[0];
+                    nodes[ip + "_above1"] = {
+                      ip: ip + "_above1",
+                      x: node.x,
+                      y: node.y - totalRingHeight
+                    };
+                    nodes[ip + "_above2"] = {
+                      ip: ip + "_above2",
+                      x: node.x,
+                      y: node.y - totalRingHeight * 2.0
+                    };
                   });
-              extLabel.x = externalX;
-              extLabel.y = 50.0 - 25.0;
-              topologyLines.addChild(extLabel);
-              var routerLabel = new PixiJs.Text({
-                    text: "GATEWAY",
-                    style: labelStyle
+              originalNodes.forEach(function (param) {
+                    var node = param[1];
+                    var ip = param[0];
+                    nodes[ip + "_below1"] = {
+                      ip: ip + "_below1",
+                      x: node.x,
+                      y: node.y + totalRingHeight
+                    };
+                    nodes[ip + "_below2"] = {
+                      ip: ip + "_below2",
+                      x: node.x,
+                      y: node.y + totalRingHeight * 2.0
+                    };
                   });
-              routerLabel.x = 150.0;
-              routerLabel.y = routerY - 25.0;
-              topologyLines.addChild(routerLabel);
+              var scadaDeviceIPs = scadaIcons.contents.map(function (icon) {
+                    return icon.ipAddress;
+                  });
+              scadaDeviceIPs.forEach(function (ip, i) {
+                    var scadaY = centerY + (i - (scadaDeviceIPs.length / 2 | 0) | 0) * 150.0;
+                    addNode(ip, -400.0, scadaY);
+                    nodes[ip + "_above1"] = {
+                      ip: ip + "_above1",
+                      x: -400.0,
+                      y: scadaY - totalRingHeight
+                    };
+                    nodes[ip + "_above2"] = {
+                      ip: ip + "_above2",
+                      x: -400.0,
+                      y: scadaY - totalRingHeight * 2.0
+                    };
+                    nodes[ip + "_below1"] = {
+                      ip: ip + "_below1",
+                      x: -400.0,
+                      y: scadaY + totalRingHeight
+                    };
+                    nodes[ip + "_below2"] = {
+                      ip: ip + "_below2",
+                      x: -400.0,
+                      y: scadaY + totalRingHeight * 2.0
+                    };
+                  });
+              var originalEdges = edges.slice();
+              originalEdges.forEach(function (edge) {
+                    edges.push({
+                          source: edge.source + "_above1",
+                          target: edge.target + "_above1",
+                          strength: edge.strength
+                        });
+                    edges.push({
+                          source: edge.source + "_above2",
+                          target: edge.target + "_above2",
+                          strength: edge.strength
+                        });
+                  });
+              originalEdges.forEach(function (edge) {
+                    edges.push({
+                          source: edge.source + "_below1",
+                          target: edge.target + "_below1",
+                          strength: edge.strength
+                        });
+                    edges.push({
+                          source: edge.source + "_below2",
+                          target: edge.target + "_below2",
+                          strength: edge.strength
+                        });
+                  });
+              var naBackboneIP = "203.0.113.1";
+              var afBackboneIP = "203.0.113.5";
+              addEdge(afBackboneIP, naBackboneIP + "_below1", 5.0, undefined);
+              addEdge(naBackboneIP, afBackboneIP + "_above1", 5.0, undefined);
+              addEdge(afBackboneIP + "_above1", naBackboneIP, 5.0, undefined);
+              addEdge(naBackboneIP + "_below1", afBackboneIP, 5.0, undefined);
+              addEdge(afBackboneIP + "_above2", naBackboneIP + "_above1", 5.0, undefined);
+              addEdge(naBackboneIP + "_below2", afBackboneIP + "_below1", 5.0, undefined);
+              var applyPosition = function (ip, icons) {
+                var node = nodes[ip];
+                if (node === undefined) {
+                  return ;
+                }
+                var icon = icons.find(function (icon) {
+                      return icon.ipAddress === ip;
+                    });
+                if (icon !== undefined) {
+                  icon.container.x = node.x;
+                  icon.container.y = node.y;
+                  return ;
+                }
+                
+              };
+              var iconsAbove1 = {
+                contents: []
+              };
+              var iconsAbove2 = {
+                contents: []
+              };
+              var iconsBelow1 = {
+                contents: []
+              };
+              var iconsBelow2 = {
+                contents: []
+              };
+              allCreatedIcons.contents.forEach(function (param) {
+                    var ipAddress = param[0];
+                    var icon = make(networkManager, ipAddress);
+                    if (icon !== undefined) {
+                      topologyContainer.addChild(icon.container);
+                      iconsAbove1.contents.push(icon);
+                    }
+                    var icon$1 = make(networkManager, ipAddress);
+                    if (icon$1 !== undefined) {
+                      topologyContainer.addChild(icon$1.container);
+                      iconsAbove2.contents.push(icon$1);
+                    }
+                    var icon$2 = make(networkManager, ipAddress);
+                    if (icon$2 !== undefined) {
+                      topologyContainer.addChild(icon$2.container);
+                      iconsBelow1.contents.push(icon$2);
+                    }
+                    var icon$3 = make(networkManager, ipAddress);
+                    if (icon$3 !== undefined) {
+                      topologyContainer.addChild(icon$3.container);
+                      iconsBelow2.contents.push(icon$3);
+                      return ;
+                    }
+                    
+                  });
+              var match = mainRouterIcon.contents;
+              var match$1 = nodes["192.168.1.1"];
+              if (match !== undefined && match$1 !== undefined) {
+                match.container.x = match$1.x;
+                match.container.y = match$1.y;
+              }
+              var match$2 = ruralRouterIcon.contents;
+              var match$3 = nodes["192.168.2.1"];
+              if (match$2 !== undefined && match$3 !== undefined) {
+                match$2.container.x = match$3.x;
+                match$2.container.y = match$3.y;
+              }
+              var match$4 = iotRouterIcon.contents;
+              var match$5 = nodes["192.168.100.1"];
+              if (match$4 !== undefined && match$5 !== undefined) {
+                match$4.container.x = match$5.x;
+                match$4.container.y = match$5.y;
+              }
+              var applyAllPositions = function () {
+                var mainRouterPos = nodes["192.168.1.1"];
+                var ruralRouterPos = nodes["192.168.2.1"];
+                var iotRouterPos = nodes["192.168.100.1"];
+                var match = mainRouterIcon.contents;
+                if (match !== undefined && mainRouterPos !== undefined) {
+                  match.container.x = mainRouterPos.x;
+                  match.container.y = mainRouterPos.y;
+                }
+                var match$1 = ruralRouterIcon.contents;
+                if (match$1 !== undefined && ruralRouterPos !== undefined) {
+                  match$1.container.x = ruralRouterPos.x;
+                  match$1.container.y = ruralRouterPos.y;
+                }
+                var match$2 = iotRouterIcon.contents;
+                if (match$2 !== undefined && iotRouterPos !== undefined) {
+                  match$2.container.x = iotRouterPos.x;
+                  match$2.container.y = iotRouterPos.y;
+                }
+                lanIcons.contents.forEach(function (icon) {
+                      applyPosition(icon.ipAddress, lanIcons.contents);
+                    });
+                dmzIcons.contents.forEach(function (icon) {
+                      applyPosition(icon.ipAddress, dmzIcons.contents);
+                    });
+                internalIcons.contents.forEach(function (icon) {
+                      applyPosition(icon.ipAddress, internalIcons.contents);
+                    });
+                devIcons.contents.forEach(function (icon) {
+                      applyPosition(icon.ipAddress, devIcons.contents);
+                    });
+                securityIcons.contents.forEach(function (icon) {
+                      applyPosition(icon.ipAddress, securityIcons.contents);
+                    });
+                managementIcons.contents.forEach(function (icon) {
+                      applyPosition(icon.ipAddress, managementIcons.contents);
+                    });
+                iotIcons.contents.forEach(function (icon) {
+                      applyPosition(icon.ipAddress, iotIcons.contents);
+                    });
+                ruralIcons.contents.forEach(function (icon) {
+                      applyPosition(icon.ipAddress, ruralIcons.contents);
+                    });
+                scadaIcons.contents.forEach(function (icon) {
+                      applyPosition(icon.ipAddress, scadaIcons.contents);
+                    });
+                var match$3 = ruralIspIcon.contents;
+                var match$4 = nodes["100.64.1.1"];
+                if (match$3 !== undefined && match$4 !== undefined) {
+                  match$3.container.x = match$4.x;
+                  match$3.container.y = match$4.y;
+                }
+                var match$5 = businessIspIcon.contents;
+                var match$6 = nodes["100.64.2.1"];
+                if (match$5 !== undefined && match$6 !== undefined) {
+                  match$5.container.x = match$6.x;
+                  match$5.container.y = match$6.y;
+                }
+                var match$7 = regionalIspIcon.contents;
+                var match$8 = nodes["198.51.100.1"];
+                if (match$7 !== undefined && match$8 !== undefined) {
+                  match$7.container.x = match$8.x;
+                  match$7.container.y = match$8.y;
+                }
+                var match$9 = naBackboneIcon.contents;
+                var match$10 = nodes["203.0.113.1"];
+                if (match$9 !== undefined && match$10 !== undefined) {
+                  match$9.container.x = match$10.x;
+                  match$9.container.y = match$10.y;
+                }
+                var match$11 = euBackboneIcon.contents;
+                var match$12 = nodes["203.0.113.2"];
+                if (match$11 !== undefined && match$12 !== undefined) {
+                  match$11.container.x = match$12.x;
+                  match$11.container.y = match$12.y;
+                }
+                var match$13 = asiaBackboneIcon.contents;
+                var match$14 = nodes["203.0.113.3"];
+                if (match$13 !== undefined && match$14 !== undefined) {
+                  match$13.container.x = match$14.x;
+                  match$13.container.y = match$14.y;
+                }
+                var match$15 = saBackboneIcon.contents;
+                var match$16 = nodes["203.0.113.4"];
+                if (match$15 !== undefined && match$16 !== undefined) {
+                  match$15.container.x = match$16.x;
+                  match$15.container.y = match$16.y;
+                }
+                var match$17 = afBackboneIcon.contents;
+                var match$18 = nodes["203.0.113.5"];
+                if (match$17 !== undefined && match$18 !== undefined) {
+                  match$17.container.x = match$18.x;
+                  match$17.container.y = match$18.y;
+                }
+                var match$19 = atlasRouterIcon.contents;
+                var match$20 = nodes["8.8.8.1"];
+                if (match$19 !== undefined && match$20 !== undefined) {
+                  match$19.container.x = match$20.x;
+                  match$19.container.y = match$20.y;
+                }
+                var match$21 = nexusRouterIcon.contents;
+                var match$22 = nodes["1.1.1.254"];
+                if (match$21 !== undefined && match$22 !== undefined) {
+                  match$21.container.x = match$22.x;
+                  match$21.container.y = match$22.y;
+                }
+                var match$23 = devhubRouterIcon.contents;
+                var match$24 = nodes["140.82.121.1"];
+                if (match$23 !== undefined && match$24 !== undefined) {
+                  match$23.container.x = match$24.x;
+                  match$23.container.y = match$24.y;
+                }
+                atlasIcons.contents.forEach(function (icon) {
+                      applyPosition(icon.ipAddress, atlasIcons.contents);
+                    });
+                nexusIcons.contents.forEach(function (icon) {
+                      applyPosition(icon.ipAddress, nexusIcons.contents);
+                    });
+                devhubIcons.contents.forEach(function (icon) {
+                      applyPosition(icon.ipAddress, devhubIcons.contents);
+                    });
+                externalIcons.contents.forEach(function (icon) {
+                      applyPosition(icon.ipAddress, externalIcons.contents);
+                    });
+                var duplicateIndex = {
+                  contents: 0
+                };
+                allCreatedIcons.contents.forEach(function (param) {
+                      var ipAddress = param[0];
+                      var idx = duplicateIndex.contents;
+                      if (idx < iconsAbove1.contents.length) {
+                        Core__Option.forEach(nodes[ipAddress + "_above1"], (function (node) {
+                                var icon = iconsAbove1.contents[idx];
+                                icon.container.x = node.x;
+                                icon.container.y = node.y;
+                              }));
+                        Core__Option.forEach(nodes[ipAddress + "_above2"], (function (node) {
+                                var icon = iconsAbove2.contents[idx];
+                                icon.container.x = node.x;
+                                icon.container.y = node.y;
+                              }));
+                      }
+                      if (idx < iconsBelow1.contents.length) {
+                        Core__Option.forEach(nodes[ipAddress + "_below1"], (function (node) {
+                                var icon = iconsBelow1.contents[idx];
+                                icon.container.x = node.x;
+                                icon.container.y = node.y;
+                              }));
+                        Core__Option.forEach(nodes[ipAddress + "_below2"], (function (node) {
+                                var icon = iconsBelow2.contents[idx];
+                                icon.container.x = node.x;
+                                icon.container.y = node.y;
+                              }));
+                      }
+                      duplicateIndex.contents = duplicateIndex.contents + 1 | 0;
+                    });
+                topologyLines.clear();
+                Object.entries(edgeCounter).forEach(function (param) {
+                      Core__Dict.$$delete(edgeCounter, param[0]);
+                    });
+                edges.forEach(function (edge) {
+                      var match = nodes[edge.source];
+                      var match$1 = nodes[edge.target];
+                      if (match === undefined) {
+                        return ;
+                      }
+                      if (match$1 === undefined) {
+                        return ;
+                      }
+                      var lineColor = edge.strength >= 5.0 ? 16711935 : (
+                          edge.strength >= 4.0 ? 16711680 : (
+                              edge.strength >= 3.0 ? 16750592 : (
+                                  edge.strength >= 2.0 ? 16776960 : 5025616
+                                )
+                            )
+                        );
+                      var lineWidth = edge.strength >= 5.0 ? 5.0 : (
+                          edge.strength >= 3.0 ? 4.0 : (
+                              edge.strength >= 2.0 ? 3.0 : 2.0
+                            )
+                        );
+                      var fromX = match.x;
+                      var fromY = match.y;
+                      var toX = match$1.x;
+                      var toY = match$1.y;
+                      var key1 = fromX.toString() + "," + fromY.toString() + "-" + toX.toString() + "," + toY.toString();
+                      var key2 = toX.toString() + "," + toY.toString() + "-" + fromX.toString() + "," + fromY.toString();
+                      var match$2 = edgeCounter[key1];
+                      var match$3 = edgeCounter[key2];
+                      var count = match$2 !== undefined ? match$2 : (
+                          match$3 !== undefined ? match$3 : 0
+                        );
+                      edgeCounter[key1] = count + 1 | 0;
+                      var curveOffset;
+                      if (count === 0) {
+                        curveOffset = 30.0;
+                      } else {
+                        var direction = count % 2 === 0 ? 1.0 : -1.0;
+                        var magnitude = (count / 2 | 0) + 1 | 0;
+                        curveOffset = direction * 30.0 * magnitude;
+                      }
+                      var startX = fromX + iconCenterX;
+                      var startY = fromY + iconCenterY;
+                      var endX = toX + iconCenterX;
+                      var endY = toY + iconCenterY;
+                      var midX = (startX + endX) / 2.0;
+                      var midY = (startY + endY) / 2.0;
+                      var dx = endX - startX;
+                      var dy = endY - startY;
+                      var dist = Math.sqrt(dx * dx + dy * dy);
+                      var perpX = dist > 0.0 ? - dy / dist : 0.0;
+                      var perpY = dist > 0.0 ? dx / dist : 0.0;
+                      var controlX = midX + perpX * curveOffset;
+                      var controlY = midY + perpY * curveOffset;
+                      topologyLines.moveTo(startX, startY).quadraticCurveTo(controlX, controlY, endX, endY).stroke({
+                            width: lineWidth,
+                            color: lineColor,
+                            alpha: 0.6
+                          });
+                    });
+              };
+              applyAllPositions();
+              var legendX = width - 420.0;
+              var legendY = height - 180.0;
+              var legendTitle = new PixiJs.Text({
+                    text: "Connection Types",
+                    style: {
+                      fontSize: 14,
+                      fill: 16777215,
+                      fontWeight: "bold"
+                    }
+                  });
+              legendContainer.addChild(legendTitle);
+              var legendEntries = [
+                [
+                  "LAN",
+                  5025616,
+                  2.0
+                ],
+                [
+                  "DMZ",
+                  16750592,
+                  2.0
+                ],
+                [
+                  "Internal Apps",
+                  2201331,
+                  2.0
+                ],
+                [
+                  "Dev/Test",
+                  10233776,
+                  2.0
+                ],
+                [
+                  "Security",
+                  16007990,
+                  2.0
+                ],
+                [
+                  "Management",
+                  48340,
+                  2.0
+                ],
+                [
+                  "IoT",
+                  15277667,
+                  2.0
+                ],
+                [
+                  "Tier 3 ISP",
+                  16776960,
+                  3.0
+                ],
+                [
+                  "Tier 2 ISP",
+                  16750592,
+                  4.0
+                ],
+                [
+                  "Tier 1 Backbone",
+                  16711680,
+                  5.0
+                ],
+                [
+                  "Services",
+                  16777215,
+                  3.0
+                ]
+              ];
+              legendEntries.forEach(function (param, i) {
+                    var column = i >= 6 ? 1 : 0;
+                    var row = column === 0 ? i : i - 6 | 0;
+                    var xPos = 10.0 + column * 200.0;
+                    var yPos = 35.0 + row * 20.0;
+                    var line = new PixiJs.Graphics();
+                    line.moveTo(xPos, yPos + 5.0);
+                    line.lineTo(xPos + 30.0, yPos + 5.0);
+                    line.stroke({
+                          color: param[1],
+                          width: param[2]
+                        });
+                    legendContainer.addChild(line);
+                    var labelText = new PixiJs.Text({
+                          text: param[0],
+                          style: {
+                            fontSize: 10,
+                            fill: 13421772
+                          }
+                        });
+                    labelText.x = xPos + 40.0;
+                    labelText.y = yPos;
+                    legendContainer.addChild(labelText);
+                  });
+              legendContainer.x = legendX;
+              legendContainer.y = legendY;
+              desktopBg.eventMode = "static";
+              desktopBg.on("wheel", (function (evt) {
+                      var deltaY = evt.deltaY;
+                      var zoomFactor = deltaY < 0.0 ? 1.1 : 0.9;
+                      var newScale = scale.contents * zoomFactor;
+                      if (newScale >= 0.3 && newScale <= 3.0) {
+                        var mouseX = evt.global.x;
+                        var mouseY = evt.global.y;
+                        var oldScale = scale.contents;
+                        var oldX = topologyContainer.x;
+                        var oldY = topologyContainer.y;
+                        var worldX = (mouseX - oldX) / oldScale;
+                        var worldY = (mouseY - oldY) / oldScale;
+                        scale.contents = newScale;
+                        var scalePoint = topologyContainer.scale;
+                        scalePoint.set(newScale, newScale);
+                        var newX = mouseX - worldX * newScale;
+                        var newY = mouseY - worldY * newScale;
+                        var scaledRingHeight = totalRingHeightRef.contents * newScale;
+                        var wrappedY;
+                        if (newY > scaledRingHeight) {
+                          var wrapped = newY - scaledRingHeight;
+                          ((console.log("ZOOM WRAP DOWN: newY=" + newY + " -> " + wrapped + " (ringHeight=" + scaledRingHeight + ")")));
+                          wrappedY = wrapped;
+                        } else if (newY < - scaledRingHeight) {
+                          var wrapped$1 = newY + scaledRingHeight;
+                          ((console.log("ZOOM WRAP UP: newY=" + newY + " -> " + wrapped + " (ringHeight=" + scaledRingHeight + ")")));
+                          wrappedY = wrapped$1;
+                        } else {
+                          wrappedY = newY;
+                        }
+                        topologyContainer.x = newX;
+                        topologyContainer.y = wrappedY;
+                      }
+                      ((evt.preventDefault()));
+                    }));
+              desktopBg.on("pointerdown", (function (evt) {
+                      isDragging.contents = true;
+                      dragStartX.contents = evt.global.x - topologyContainer.x;
+                      dragStartY.contents = evt.global.y - topologyContainer.y;
+                    }));
+              desktopBg.on("pointerup", (function (_evt) {
+                      isDragging.contents = false;
+                    }));
+              desktopBg.on("pointerupoutside", (function (_evt) {
+                      isDragging.contents = false;
+                    }));
+              desktopBg.on("pointermove", (function (evt) {
+                      if (!isDragging.contents) {
+                        return ;
+                      }
+                      var globalX = evt.global.x;
+                      var globalY = evt.global.y;
+                      var newX = globalX - dragStartX.contents;
+                      var newY = globalY - dragStartY.contents;
+                      var currentScale = scale.contents;
+                      var scaledRingHeight = totalRingHeightRef.contents * currentScale;
+                      var wrappedY;
+                      if (newY > scaledRingHeight) {
+                        var wrapped = newY - scaledRingHeight;
+                        dragStartY.contents = dragStartY.contents + scaledRingHeight;
+                        ((console.log("PAN WRAP DOWN: newY=" + newY + " -> " + (newY - scaledRingHeight) + " (ringHeight=" + scaledRingHeight + ", scale=" + currentScale + ")")));
+                        wrappedY = wrapped;
+                      } else if (newY < - scaledRingHeight) {
+                        var wrapped$1 = newY + scaledRingHeight;
+                        dragStartY.contents = dragStartY.contents - scaledRingHeight;
+                        ((console.log("PAN WRAP UP: newY=" + newY + " -> " + (newY + scaledRingHeight) + " (ringHeight=" + scaledRingHeight + ", scale=" + currentScale + ")")));
+                        wrappedY = wrapped$1;
+                      } else {
+                        wrappedY = newY;
+                      }
+                      topologyContainer.x = newX;
+                      topologyContainer.y = wrappedY;
+                    }));
+              var instructions = new PixiJs.Text({
+                    text: "Mouse wheel: Zoom | Drag: Pan",
+                    style: {
+                      fontSize: 11,
+                      fill: 8947848
+                    }
+                  });
+              instructions.x = 10.0;
+              instructions.y = height - 25.0;
+              container.addChild(instructions);
             }),
           blur: undefined,
           focus: undefined,
@@ -405,10 +1438,24 @@ var constructor = {
   assetBundles: constructor_assetBundles
 };
 
+var levelSpacing = 240.0;
+
+var baseDeviceSpacing = 100.0;
+
+var minBranchSpacing = 120.0;
+
 export {
   assetBundles ,
   getZone ,
   DeviceIcon ,
+  levelSpacing ,
+  baseDeviceSpacing ,
+  minBranchSpacing ,
+  calculateDeviceSpacing ,
+  calculateTotalHeight ,
+  buildTree ,
+  calculateSubtreeHeights ,
+  layoutNode ,
   make$1 as make,
   constructor ,
 }

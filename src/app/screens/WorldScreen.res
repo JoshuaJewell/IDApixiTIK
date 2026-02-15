@@ -807,6 +807,9 @@ let make = (): Navigation.appScreen => {
       // deltaTime is in frames at 60fps, convert to seconds
       let dt = Ticker.deltaTime(ticker) /. 60.0
 
+      // Update network transfers (bandwidth simulation)
+      NetworkTransfer.updateTransfers(dt)
+
       // Convert mouse viewport coordinates to world coordinates
       // The player appears on screen at: (playerWorldX + worldContainer.x, playerWorldY)
       // So to convert screen to world: worldX = screenX - worldContainer.x

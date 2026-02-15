@@ -147,6 +147,7 @@ type sshSession = {
 // RDP callback type: (remoteState, remoteHost) => unit
 type rdpCallback = (LaptopState.laptopState, string) => unit
 
+/* COMMENTED OUT - Replaced with unified Terminal.res component
 let createLaptopTerminal = (state: LaptopState.laptopState, ~width: float, ~height: float, ~onRdp: option<rdpCallback>=?, ()): Container.t => {
   let container = Container.make()
   Container.setEventMode(container, "static")
@@ -371,12 +372,31 @@ Use up/down arrows to navigate command history.`
           }
         }
       | "rm" | "del" =>
-        switch Array.get(args, 0) {
-        | None => "Usage: rm <filename>"
+        // Parse flags
+        let hasRecursive = Array.some(args, arg => arg == "-r" || arg == "-rf" || arg == "-fr")
+        let hasForce = Array.some(args, arg => arg == "-f" || arg == "-rf" || arg == "-fr")
+
+        // Get filename (skip flags)
+        let fileName = Array.find(args, arg => !String.startsWith(arg, "-"))
+
+        switch fileName {
+        | None => "Usage: rm [-rf] <filename>"
         | Some(name) =>
-          switch LaptopState.deleteNode(activeState.filesystem, currentDir.contents, name) {
+          // Use recursive deletion if -r flag is present
+          let deleteResult = if hasRecursive {
+            LaptopState.deleteNodeRecursive(activeState.filesystem, currentDir.contents, name)
+          } else {
+            LaptopState.deleteNode(activeState.filesystem, currentDir.contents, name)
+          }
+
+          switch deleteResult {
           | Ok() => `Deleted: ${name}`
-          | Error(err) => err
+          | Error(err) =>
+            if hasForce && !String.includes(err, "Permission") {
+              "" // Force flag suppresses non-permission errors
+            } else {
+              err
+            }
           }
         }
       | "cp" | "copy" =>
@@ -473,7 +493,7 @@ Use up/down arrows to navigate command history.`
           switch Int.fromString(pidStr) {
           | None => "kill: invalid PID"
           | Some(pid) =>
-            switch LaptopState.killProcess(activeState.processManager, pid) {
+            switch LaptopState.killProcess(activeState.processManager, pid, activeState.ipAddress) {
             | Ok() => `Process ${pidStr} terminated.`
             | Error(err) => `kill: ${err}`
             }
@@ -956,9 +976,10 @@ ${host}.           300     IN      A       ${ip}
 
   container
 }
+END OF COMMENTED OUT SECTION */
 
 // ============================================
-// Notepad with editable text using shared filesystem
+// Notepad with editable text using GlobalNetworkData
 // ============================================
 let openNotepad = (laptop: t, desktop: Container.t, ~filePath: option<string>=?, ()): unit => {
   let pid = LaptopState.openApp(laptop.state.processManager, "notepad.exe")
@@ -966,17 +987,23 @@ let openNotepad = (laptop: t, desktop: Container.t, ~filePath: option<string>=?,
   let path = filePath->Option.getOr("C:\\Users\\Admin\\Documents\\notes.txt")
   let fileName = String.split(path, "\\")->Array.get(_, Array.length(String.split(path, "\\")) - 1)->Option.getOr("Untitled")
 
-  let initialContent = switch LaptopState.readFile(laptop.state.filesystem, path) {
+  // Read file from device filesystem
+  let initialContent = switch DeviceView.readFile(laptop.state.ipAddress, path) {
   | Ok(content) => content
-  | Error(_) => ""
+  | Error(_) => "" // New file or error
   }
+
+  let setInputFocused: bool => unit = %raw(`function(focused) { window.__pixiui_input_focused = focused; }`)
 
   let win = AppWindow.make(
     ~title=`Notepad - ${fileName}`,
     ~w=380.0,
     ~h=280.0,
     ~appName="Notepad",
-    ~onClose=() => LaptopState.closeApp(laptop.state.processManager, "notepad.exe"),
+    ~onClose=() => {
+      setInputFocused(false)
+      LaptopState.closeApp(laptop.state.processManager, "notepad.exe")
+    },
     (),
   )
 
@@ -1019,22 +1046,27 @@ let openNotepad = (laptop: t, desktop: Container.t, ~filePath: option<string>=?,
   PixiUI.Input.setY(textInput, 10.0)
   let _ = Container.addChild(content, PixiUI.Input.toContainer(textInput))
 
-  // Auto-save on change
+  // Auto-save on change (copy-on-write: creates new content)
   PixiUI.Signal.connect(PixiUI.Input.onChange(textInput), newText => {
-    let _ = LaptopState.writeFile(laptop.state.filesystem, path, newText)
+    let _ = DeviceView.writeFile(laptop.state.ipAddress, path, newText)
   })
+
+  // Set global flag when input is clicked (for Terminal to check)
+  let inputContainer = PixiUI.Input.toContainer(textInput)
+  Container.setEventMode(inputContainer, "static")
+  Container.on(inputContainer, "pointerdown", _ => setInputFocused(true))
 
   let _ = Container.addChild(desktop, win.container)
 }
 
 // ============================================
-// File Manager using shared filesystem
+// File Manager using GlobalNetworkData (simplified)
 // ============================================
 let openFileManager = (laptop: t, desktop: Container.t): unit => {
   let pid = LaptopState.openApp(laptop.state.processManager, "explorer.exe")
 
   let win = AppWindow.make(
-    ~title="File Manager",
+    ~title="File Manager - All Files",
     ~w=420.0,
     ~h=320.0,
     ~appName="File Manager",
@@ -1050,139 +1082,186 @@ let openFileManager = (laptop: t, desktop: Container.t): unit => {
   Container.setY(win.container, 100.0)
 
   let content = AppWindow.getContent(win)
-  let currentPath = ref("C:\\Users\\Admin")
 
-  // Path bar using editable input
-  let pathBarBg = Graphics.make()
-  let _ = pathBarBg->Graphics.rect(0.0, 0.0, 400.0, 22.0)->Graphics.fill({"color": 0xffffff})->Graphics.stroke({"width": 1, "color": 0xcccccc})
+  // Current path state
+  let currentPath = ref("C:\\")
 
-  let pathInput = PixiUI.Input.make({
-    "bg": pathBarBg,
-    "value": currentPath.contents,
-    "textStyle": {"fontSize": 11, "fill": 0x000000, "fontFamily": "monospace"},
-    "padding": 5,
+  // Header with current path
+  let headerText = Text.make({
+    "text": `Files on ${laptop.state.hostname} (${laptop.state.ipAddress})`,
+    "style": {"fontSize": 11, "fill": 0x000000, "fontFamily": "monospace", "fontWeight": "bold"},
   })
-  PixiUI.Input.setX(pathInput, 5.0)
-  PixiUI.Input.setY(pathInput, 5.0)
-  let _ = Container.addChild(content, PixiUI.Input.toContainer(pathInput))
+  Text.setX(headerText, 10.0)
+  Text.setY(headerText, 10.0)
+  let _ = Container.addChildText(content, headerText)
+
+  // Path display
+  let pathText = Text.make({
+    "text": `Path: ${currentPath.contents}`,
+    "style": {"fontSize": 10, "fill": 0x666666, "fontFamily": "monospace"},
+  })
+  Text.setX(pathText, 10.0)
+  Text.setY(pathText, 25.0)
+  let _ = Container.addChildText(content, pathText)
 
   // File list container
   let fileList = Container.make()
-  Container.setY(fileList, 35.0)
+  Container.setY(fileList, 45.0)
   let _ = Container.addChild(content, fileList)
 
-  // Render directory contents
-  let rec renderDir = (): unit => {
-    // Clear existing
+  // Function to render current directory
+  let rec renderDirectory = (): unit => {
+    // Clear current list
     Container.removeChildren(fileList)
 
-    // Update path input value
-    PixiUI.Input.setValue(pathInput, currentPath.contents)
+    let yOffset = ref(0.0)
 
-    // Add ".." for going up
-    if currentPath.contents != "C:" && currentPath.contents != "C:\\" {
-      let upItem = Container.make()
-      Container.setEventMode(upItem, "static")
-      Container.setCursor(upItem, "pointer")
+    // Add ".." entry if not at root
+    if currentPath.contents != "C:\\" {
+      let item = Container.make()
+      Container.setY(item, yOffset.contents)
+      Container.setEventMode(item, "static")
+      Container.setCursor(item, "pointer")
 
-      let upBg = Graphics.make()
-      let _ = upBg->Graphics.rect(0.0, 0.0, 400.0, 20.0)->Graphics.fill({"color": 0xf8f8f8})
-      let _ = Container.addChildGraphics(upItem, upBg)
+      let itemBg = Graphics.make()
+      let _ = itemBg->Graphics.rect(0.0, 0.0, 400.0, 20.0)->Graphics.fill({"color": 0xf5f5f5})
+      let _ = Container.addChildGraphics(item, itemBg)
 
-      let upText = Text.make({
-        "text": "[..] Parent Directory",
-        "style": {"fontSize": 11, "fill": 0x0066cc, "fontFamily": "monospace"},
+      let itemText = Text.make({
+        "text": "[DIR]  ..",
+        "style": {"fontSize": 11, "fill": 0x000000, "fontFamily": "monospace"},
       })
-      Text.setX(upText, 10.0)
-      Text.setY(upText, 3.0)
-      let _ = Container.addChildText(upItem, upText)
+      Text.setX(itemText, 10.0)
+      Text.setY(itemText, 3.0)
+      let _ = Container.addChildText(item, itemText)
 
-      Container.on(upItem, "pointertap", _ => {
-        let parts = String.split(currentPath.contents, "\\")->Array.filter(p => p != "")
-        let _ = Array.pop(parts)
-        currentPath := if Array.length(parts) == 0 { "C:\\" } else { Array.join(parts, "\\") }
-        renderDir()
+      // Click to go up one level
+      Container.on(item, "pointertap", _ => {
+        // Remove last directory from path
+        let parts = String.split(currentPath.contents, "\\")
+        let newParts = Array.slice(parts, ~start=0, ~end=Array.length(parts) - 1)
+        let newPath = if Array.length(newParts) <= 1 {
+          "C:\\"
+        } else {
+          Array.join(newParts, "\\")
+        }
+        currentPath := newPath
+        Text.setText(pathText, `Path: ${currentPath.contents}`)
+        renderDirectory()
       })
 
-      let _ = Container.addChild(fileList, upItem)
+      let _ = Container.addChild(fileList, item)
+      yOffset := yOffset.contents +. 22.0
     }
 
-    // List directory contents
-    switch LaptopState.listDir(laptop.state.filesystem, currentPath.contents) {
-    | None => ()
+    // Get files in current directory
+    switch DeviceView.listFiles(laptop.state.ipAddress, currentPath.contents) {
     | Some(items) =>
-      let yOffset = ref(if currentPath.contents != "C:" && currentPath.contents != "C:\\" { 22.0 } else { 0.0 })
+      Array.forEach(items, ((itemName, isDir, isLocked, sizeMB)) => {
 
-      Array.forEach(items, ((name, isDir, isLocked, _size)) => {
-        let item = Container.make()
-        Container.setY(item, yOffset.contents)
-        Container.setEventMode(item, "static")
-        Container.setCursor(item, "pointer")
+        let itemContainer = Container.make()
+        Container.setY(itemContainer, yOffset.contents)
+        Container.setEventMode(itemContainer, "static")
+        Container.setCursor(itemContainer, "pointer")
 
         let itemBg = Graphics.make()
         let bgColor = if mod(Int.fromFloat(yOffset.contents /. 22.0), 2) == 0 { 0xffffff } else { 0xf5f5f5 }
         let _ = itemBg->Graphics.rect(0.0, 0.0, 400.0, 20.0)->Graphics.fill({"color": bgColor})
-        let _ = Container.addChildGraphics(item, itemBg)
+        let _ = Container.addChildGraphics(itemContainer, itemBg)
 
-        let prefix = if isDir { "[DIR] " } else { "[FILE]" }
-        let color = if isLocked { 0xff0000 } else if isDir { 0x0066cc } else { 0x000000 }
+        let prefix = if isDir { "[DIR]  " } else { "[FILE] " }
+        let color = if isLocked { 0xff0000 } else { 0x000000 }
         let suffix = if isLocked { " [LOCKED]" } else { "" }
+        let sizeStr = if sizeMB >= 1.0 {
+          ` (${Float.toFixed(sizeMB, ~digits=1)} MB)`
+        } else if sizeMB > 0.0 {
+          let kb = sizeMB *. 1024.0
+          ` (${Float.toFixed(kb, ~digits=0)} KB)`
+        } else {
+          ""
+        }
 
         let itemText = Text.make({
-          "text": `${prefix} ${name}${suffix}`,
+          "text": `${prefix}${itemName}${suffix}${sizeStr}`,
           "style": {"fontSize": 11, "fill": color, "fontFamily": "monospace"},
         })
         Text.setX(itemText, 10.0)
         Text.setY(itemText, 3.0)
-        let _ = Container.addChildText(item, itemText)
+        let _ = Container.addChildText(itemContainer, itemText)
 
-        // Click to navigate into directory or open file
-        if isDir {
-          Container.on(item, "pointertap", _ => {
-            currentPath := currentPath.contents ++ "\\" ++ name
-            renderDir()
-          })
-        } else if !isLocked {
-          // Open text files in Notepad
-          let fullPath = currentPath.contents ++ "\\" ++ name
-          if String.endsWith(name, ".txt") || String.endsWith(name, ".log") || String.endsWith(name, ".conf") || String.endsWith(name, ".key") || String.endsWith(name, ".dat") || String.endsWith(name, ".sys") {
-            Container.on(item, "pointertap", _ => {
+        // Click handler
+        Container.on(itemContainer, "pointertap", _ => {
+          if isDir {
+            // Navigate into directory
+            let newPath = if currentPath.contents == "C:\\" {
+              currentPath.contents ++ itemName
+            } else {
+              currentPath.contents ++ "\\" ++ itemName
+            }
+            currentPath := newPath
+            Text.setText(pathText, `Path: ${currentPath.contents}`)
+            renderDirectory()
+          } else if !isLocked {
+            // Open file in notepad if it's a text file
+            if String.endsWith(itemName, ".txt") || String.endsWith(itemName, ".log") || String.endsWith(itemName, ".conf") || String.endsWith(itemName, ".key") || String.endsWith(itemName, ".dat") || String.endsWith(itemName, ".json") || String.endsWith(itemName, ".env") {
+              let fullPath = if currentPath.contents == "C:\\" {
+                currentPath.contents ++ itemName
+              } else {
+                currentPath.contents ++ "\\" ++ itemName
+              }
               openNotepad(laptop, desktop, ~filePath=fullPath, ())
-            })
+            }
           }
-        }
+        })
 
-        let _ = Container.addChild(fileList, item)
+        let _ = Container.addChild(fileList, itemContainer)
         yOffset := yOffset.contents +. 22.0
       })
+    | None => ()
     }
   }
 
-  // Navigate when Enter is pressed in path bar
-  PixiUI.Signal.connect(PixiUI.Input.onEnter(pathInput), newPath => {
-    switch LaptopState.resolvePath(laptop.state.filesystem, newPath) {
-    | Some(LaptopState.Dir(_)) =>
-      currentPath := newPath
-      renderDir()
-    | _ => () // Invalid path, ignore
-    }
-  })
+  // Initial render
+  renderDirectory()
 
-  renderDir()
   let _ = Container.addChild(desktop, win.container)
 }
 
 // ============================================
-// Network Manager
+// Network Manager - Visual Topology Map
 // ============================================
+
+// Type for grouping devices by subnet
+type deviceGroup = {
+  name: string,
+  color: int,
+  devices: array<(string, string, DeviceTypes.deviceType)>, // (ip, name, type)
+  x: float,
+  y: float,
+}
+
+// External reference to GlobalNetworkManager without circular import
+@module("./GlobalNetworkManager.res.mjs") external getGlobalManager: unit => 'a = "get"
+
+// Helper to get devices from manager
+let getDevicesFromManager: 'a => array<DeviceTypes.device> = %raw(`
+  function(manager) {
+    return Object.values(manager.devices);
+  }
+`)
+
+// Import isReachableFrom from NetworkManager module
+@module("./NetworkManager.res.mjs")
+external isReachableFromManager: ('a, string, string) => bool = "isReachableFrom"
+
 let openNetworkManager = (laptop: t, desktop: Container.t): unit => {
   let pid = LaptopState.openApp(laptop.state.processManager, "netman.exe")
 
   let win = AppWindow.make(
-    ~title="Network Manager",
-    ~w=400.0,
-    ~h=300.0,
-    ~appName="Network Manager",
+    ~title="Network Topology",
+    ~w=700.0,
+    ~h=500.0,
+    ~appName="Network Topology",
     ~onClose=() => LaptopState.closeApp(laptop.state.processManager, "netman.exe"),
     (),
   )
@@ -1191,40 +1270,363 @@ let openNetworkManager = (laptop: t, desktop: Container.t): unit => {
   LaptopState.registerWindowCloser(laptop.state.processManager, pid, () => {
     Container.destroy(win.container)
   })
-  Container.setX(win.container, 180.0)
-  Container.setY(win.container, 120.0)
+  Container.setX(win.container, 100.0)
+  Container.setY(win.container, 50.0)
 
   let content = AppWindow.getContent(win)
 
-  let header = Text.make({
-    "text": "Network Connections",
-    "style": {"fontSize": 14, "fill": 0x000000, "fontWeight": "bold"},
-  })
-  Text.setX(header, 10.0)
-  Text.setY(header, 10.0)
-  let _ = Container.addChildText(content, header)
+  // Get devices using external binding to avoid circular dependency
+  {
+      let manager = getGlobalManager()
+      let allDevices = getDevicesFromManager(manager)
 
-  let connections = [
-    "WiFi: Connected",
-    "SSID: CorpNetwork-5G",
-    "IP: 192.168.1.102",
-    "Gateway: 192.168.1.1",
-    "DNS: 8.8.8.8, 8.8.4.4",
-    "",
-    "Active Connections:",
-    "- VPN: Disconnected",
-    "- Ethernet: Not connected",
-  ]
+      // Filter to only show devices reachable from this laptop
+      let sourceIp = laptop.state.ipAddress
+      let devices = Array.filter(allDevices, device => {
+        let info = device.getInfo()
+        isReachableFromManager(manager, sourceIp, info.ipAddress)
+      })
 
-  Array.forEachWithIndex(connections, (line, i) => {
-    let text = Text.make({
-      "text": line,
-      "style": {"fontSize": 11, "fill": 0x000000, "fontFamily": "monospace"},
-    })
-    Text.setX(text, 10.0)
-    Text.setY(text, 40.0 +. Int.toFloat(i) *. 18.0)
-    let _ = Container.addChildText(content, text)
-  })
+      // Group devices by zone (matches NetworkDesktop zones)
+      let groups = [
+        // Edge Networks
+        {
+          name: "LAN (192.168.1.x)",
+          color: 0x4CAF50,
+          devices: [],
+          x: 100.0,
+          y: 150.0,
+        },
+        // Downtown Office Zones
+        {
+          name: "DMZ (10.0.0.x)",
+          color: 0xFF9800,
+          devices: [],
+          x: 280.0,
+          y: 80.0,
+        },
+        {
+          name: "Internal (10.0.1.x)",
+          color: 0x2196F3,
+          devices: [],
+          x: 280.0,
+          y: 160.0,
+        },
+        {
+          name: "Dev (10.0.2.x)",
+          color: 0x9C27B0,
+          devices: [],
+          x: 280.0,
+          y: 240.0,
+        },
+        {
+          name: "Security (10.0.3.x)",
+          color: 0xF44336,
+          devices: [],
+          x: 280.0,
+          y: 320.0,
+        },
+        {
+          name: "Mgmt (172.16.0.x)",
+          color: 0x00BCD4,
+          devices: [],
+          x: 280.0,
+          y: 400.0,
+        },
+        {
+          name: "IoT (192.168.100.x)",
+          color: 0xE91E63,
+          devices: [],
+          x: 100.0,
+          y: 320.0,
+        },
+        {
+          name: "SCADA (10.10.1.x)",
+          color: 0xFF5722,
+          devices: [],
+          x: 100.0,
+          y: 400.0,
+        },
+        // Public Services
+        {
+          name: "Atlas (8.8.8.x)",
+          color: 0x4285F4,
+          devices: [],
+          x: 500.0,
+          y: 80.0,
+        },
+        {
+          name: "Nexus (1.1.1.x)",
+          color: 0xF38020,
+          devices: [],
+          x: 600.0,
+          y: 200.0,
+        },
+        {
+          name: "DevHub (140.82.x.x)",
+          color: 0x24292e,
+          devices: [],
+          x: 500.0,
+          y: 320.0,
+        },
+      ]
+
+      // Classify devices into groups (zone-based)
+      let lanDevices = ref([])
+      let ruralDevices = ref([])
+      let dmzDevices = ref([])
+      let internalDevices = ref([])
+      let devDevices = ref([])
+      let securityDevices = ref([])
+      let managementDevices = ref([])
+      let iotDevices = ref([])
+      let scadaDevices = ref([])
+      let atlasDevices = ref([])
+      let nexusDevices = ref([])
+      let devhubDevices = ref([])
+      let webDevices = ref([])
+
+      Array.forEach(devices, device => {
+        let info = device.getInfo()
+        let ip = info.ipAddress
+        let name = info.name
+        let deviceType = info.deviceType
+
+        // Skip routers - they're already shown as topology nodes
+        if deviceType != DeviceTypes.Router {
+          // Edge Networks
+          if String.startsWith(ip, "192.168.1.") {
+            lanDevices := Array.concat(lanDevices.contents, [(ip, name, deviceType)])
+          } else if String.startsWith(ip, "192.168.2.") {
+            ruralDevices := Array.concat(ruralDevices.contents, [(ip, name, deviceType)])
+          // Downtown Office Zones
+          } else if String.startsWith(ip, "10.0.0.") {
+            dmzDevices := Array.concat(dmzDevices.contents, [(ip, name, deviceType)])
+          } else if String.startsWith(ip, "10.0.1.") {
+            internalDevices := Array.concat(internalDevices.contents, [(ip, name, deviceType)])
+          } else if String.startsWith(ip, "10.0.2.") {
+            devDevices := Array.concat(devDevices.contents, [(ip, name, deviceType)])
+          } else if String.startsWith(ip, "10.0.3.") {
+            securityDevices := Array.concat(securityDevices.contents, [(ip, name, deviceType)])
+          } else if String.startsWith(ip, "172.16.0.") {
+            managementDevices := Array.concat(managementDevices.contents, [(ip, name, deviceType)])
+          } else if String.startsWith(ip, "192.168.100.") {
+            iotDevices := Array.concat(iotDevices.contents, [(ip, name, deviceType)])
+          } else if String.startsWith(ip, "10.10.1.") {
+            scadaDevices := Array.concat(scadaDevices.contents, [(ip, name, deviceType)])
+          // Public Services
+          } else if String.startsWith(ip, "8.8.8.") || String.startsWith(ip, "142.250.") {
+            atlasDevices := Array.concat(atlasDevices.contents, [(ip, name, deviceType)])
+          } else if String.startsWith(ip, "1.1.1.") || String.startsWith(ip, "104.16.") {
+            nexusDevices := Array.concat(nexusDevices.contents, [(ip, name, deviceType)])
+          } else if String.startsWith(ip, "140.82.") {
+            devhubDevices := Array.concat(devhubDevices.contents, [(ip, name, deviceType)])
+          }
+        }
+      })
+
+      // Update groups with actual devices
+      let finalGroups = [
+        {...Array.getUnsafe(groups, 0), devices: lanDevices.contents},
+        {...Array.getUnsafe(groups, 1), devices: dmzDevices.contents},
+        {...Array.getUnsafe(groups, 2), devices: internalDevices.contents},
+        {...Array.getUnsafe(groups, 3), devices: devDevices.contents},
+        {...Array.getUnsafe(groups, 4), devices: securityDevices.contents},
+        {...Array.getUnsafe(groups, 5), devices: managementDevices.contents},
+        {...Array.getUnsafe(groups, 6), devices: iotDevices.contents},
+        {...Array.getUnsafe(groups, 7), devices: scadaDevices.contents},
+        {...Array.getUnsafe(groups, 8), devices: atlasDevices.contents},
+        {...Array.getUnsafe(groups, 9), devices: nexusDevices.contents},
+        {...Array.getUnsafe(groups, 10), devices: devhubDevices.contents},
+      ]
+
+      // Draw topology with ISP tier structure (matches Network Desktop)
+      let connectionLayer = Graphics.make()
+      let _ = Container.addChildGraphics(content, connectionLayer)
+
+      // Helper to draw a router node
+      let drawRouter = (x: float, y: float, label: string, color: int): unit => {
+        let icon = Graphics.make()
+        let _ = icon
+          ->Graphics.circle(0.0, 0.0, 8.0)
+          ->Graphics.fill({"color": color})
+          ->Graphics.stroke({"color": 0x000000, "width": 1.5})
+        Graphics.setX(icon, x)
+        Graphics.setY(icon, y)
+        let _ = Container.addChildGraphics(content, icon)
+
+        let text = Text.make({
+          "text": label,
+          "style": {"fontSize": 7, "fill": 0x000000, "fontWeight": "bold", "align": "center"},
+        })
+        Text.setX(text, x -. 25.0)
+        Text.setY(text, y +. 10.0)
+        let _ = Container.addChildText(content, text)
+      }
+
+      // Helper to draw a connection line
+      let drawConnection = (x1: float, y1: float, x2: float, y2: float, color: int, width: float): unit => {
+        let _ = connectionLayer
+          ->Graphics.moveTo(x1, y1)
+          ->Graphics.lineTo(x2, y2)
+          ->Graphics.stroke({"color": color, "width": width, "alpha": 0.6})
+      }
+
+      // Layout positions (compact version for laptop screen)
+      let edgeX = 80.0
+      let tier3X = 200.0
+      let tier2X = 300.0
+      let tier1X = 400.0
+      let serviceX = 550.0
+
+      let mainRouterY = 120.0
+      let ruralRouterY = 280.0
+      let businessIspY = 80.0
+      let ruralIspY = 240.0
+      let regionalIspY = 160.0
+      let backboneY = 160.0
+      let atlasY = 80.0
+      let nexusY = 200.0
+      let devhubY = 320.0
+
+      // Draw edge routers
+      drawRouter(edgeX, mainRouterY, "Downtown\nRouter", 0xFF9800)
+      drawRouter(edgeX, ruralRouterY, "Rural\nRouter", 0xFF9800)
+
+      // Draw ISP tier 3
+      drawRouter(tier3X, businessIspY, "Business\nISP", 0xFFFF00)
+      drawRouter(tier3X, ruralIspY, "Rural\nISP", 0xFFFF00)
+
+      // Draw ISP tier 2
+      drawRouter(tier2X, regionalIspY, "Regional\nISP", 0xFF9800)
+
+      // Draw ISP tier 1
+      drawRouter(tier1X, backboneY, "Internet\nBackbone", 0xFF0000)
+
+      // Draw service routers
+      drawRouter(serviceX, atlasY, "Atlas", 0x4285F4)
+      drawRouter(serviceX, nexusY, "Nexus", 0xF38020)
+      drawRouter(serviceX, devhubY, "DevHub", 0x666666)
+
+      // Draw connections (matches actual topology)
+      // Edge to ISP Tier 3
+      drawConnection(edgeX, mainRouterY, tier3X, businessIspY, 0xFFFF00, 2.0)
+      drawConnection(edgeX, ruralRouterY, tier3X, ruralIspY, 0xFFFF00, 2.0)
+
+      // Tier 3 to Tier 2
+      drawConnection(tier3X, businessIspY, tier2X, regionalIspY, 0xFF9800, 2.5)
+      drawConnection(tier3X, ruralIspY, tier2X, regionalIspY, 0xFF9800, 2.5)
+
+      // Tier 2 to Tier 1
+      drawConnection(tier2X, regionalIspY, tier1X, backboneY, 0xFF0000, 3.0)
+
+      // Tier 1 to Services
+      drawConnection(tier1X, backboneY, serviceX, atlasY, 0xFFFFFF, 2.0)
+      drawConnection(tier1X, backboneY, serviceX, nexusY, 0xFFFFFF, 2.0)
+      drawConnection(tier1X, backboneY, serviceX, devhubY, 0xFFFFFF, 2.0)
+
+      // Draw local devices around edge routers
+      let deviceRadius = 35.0
+
+      // Downtown devices (LAN + all office zones)
+      let downtownDevices = Array.concat(
+        lanDevices.contents,
+        Array.concat(
+          dmzDevices.contents,
+          Array.concat(
+            internalDevices.contents,
+            Array.concat(
+              devDevices.contents,
+              Array.concat(
+                securityDevices.contents,
+                Array.concat(managementDevices.contents, Array.concat(iotDevices.contents, scadaDevices.contents))
+              )
+            )
+          )
+        )
+      )
+      Array.forEachWithIndex(downtownDevices, ((ip, name, _deviceType), i) => {
+        let angle = Int.toFloat(i) *. (6.28 /. Int.toFloat(Array.length(downtownDevices)))
+        let dx = edgeX +. deviceRadius *. cos(angle)
+        let dy = mainRouterY +. deviceRadius *. sin(angle)
+
+        let dot = Graphics.make()
+        let _ = dot->Graphics.circle(0.0, 0.0, 2.0)->Graphics.fill({"color": 0x4CAF50})
+        Graphics.setX(dot, dx)
+        Graphics.setY(dot, dy)
+        let _ = Container.addChildGraphics(content, dot)
+
+        drawConnection(edgeX, mainRouterY, dx, dy, 0x4CAF50, 1.0)
+      })
+
+      // Rural devices
+      Array.forEachWithIndex(ruralDevices.contents, ((ip, name, _deviceType), i) => {
+        let dx = edgeX +. 30.0
+        let dy = ruralRouterY +. 25.0 +. Int.toFloat(i) *. 12.0
+
+        let dot = Graphics.make()
+        let _ = dot->Graphics.circle(0.0, 0.0, 2.0)->Graphics.fill({"color": 0x4CAF50})
+        Graphics.setX(dot, dx)
+        Graphics.setY(dot, dy)
+        let _ = Container.addChildGraphics(content, dot)
+
+        drawConnection(edgeX, ruralRouterY, dx, dy, 0x4CAF50, 1.0)
+      })
+
+      // Service provider devices (vertical stacks next to routers)
+      let serviceDeviceOffset = 20.0
+
+      // Atlas devices
+      Array.forEachWithIndex(atlasDevices.contents, ((ip, name, _deviceType), i) => {
+        let dx = serviceX +. serviceDeviceOffset
+        let dy = atlasY -. 10.0 +. Int.toFloat(i) *. 12.0
+
+        let dot = Graphics.make()
+        let _ = dot->Graphics.circle(0.0, 0.0, 2.0)->Graphics.fill({"color": 0x4285F4})
+        Graphics.setX(dot, dx)
+        Graphics.setY(dot, dy)
+        let _ = Container.addChildGraphics(content, dot)
+
+        drawConnection(serviceX, atlasY, dx, dy, 0xFFFFFF, 1.0)
+      })
+
+      // Nexus devices
+      Array.forEachWithIndex(nexusDevices.contents, ((ip, name, _deviceType), i) => {
+        let dx = serviceX +. serviceDeviceOffset
+        let dy = nexusY -. 10.0 +. Int.toFloat(i) *. 12.0
+
+        let dot = Graphics.make()
+        let _ = dot->Graphics.circle(0.0, 0.0, 2.0)->Graphics.fill({"color": 0xF38020})
+        Graphics.setX(dot, dx)
+        Graphics.setY(dot, dy)
+        let _ = Container.addChildGraphics(content, dot)
+
+        drawConnection(serviceX, nexusY, dx, dy, 0xFFFFFF, 1.0)
+      })
+
+      // DevHub devices
+      Array.forEachWithIndex(devhubDevices.contents, ((ip, name, _deviceType), i) => {
+        let dx = serviceX +. serviceDeviceOffset
+        let dy = devhubY -. 10.0 +. Int.toFloat(i) *. 12.0
+
+        let dot = Graphics.make()
+        let _ = dot->Graphics.circle(0.0, 0.0, 2.0)->Graphics.fill({"color": 0x666666})
+        Graphics.setX(dot, dx)
+        Graphics.setY(dot, dy)
+        let _ = Container.addChildGraphics(content, dot)
+
+        drawConnection(serviceX, devhubY, dx, dy, 0xFFFFFF, 1.0)
+      })
+
+      // Legend
+      let legend = Text.make({
+        "text": "Yellow=Tier3 Orange=Tier2 Red=Tier1 White=Services Green=LAN Blue=VLAN",
+        "style": {"fontSize": 7, "fill": 0x666666},
+      })
+      Text.setX(legend, 10.0)
+      Text.setY(legend, 470.0)
+      let _ = Container.addChildText(content, legend)
+  }
 
   let _ = Container.addChild(desktop, win.container)
 }
@@ -1290,7 +1692,7 @@ let openProcessExplorer = (laptop: t, desktop: Container.t): unit => {
   // Render function
   let renderProcesses = (): unit => {
     // Update stats - using unified storage model (Gq)
-    let (usedGq, totalGq) = LaptopState.getTotalStorageUsage(laptop.state.processManager, laptop.state.filesystem)
+    let (usedGq, totalGq) = LaptopState.getTotalStorageUsage(laptop.state.processManager, laptop.state.ipAddress)
     let cpuUsage = LaptopState.getCpuUsage(laptop.state.processManager)
     Text.setText(statsText, `Storage: ${Int.toString(usedGq)} Gq / ${Int.toString(totalGq)} Gq   CPU: ${Float.toFixed(cpuUsage, ~digits=1)}%`)
 
@@ -1390,17 +1792,16 @@ let openTerminal = (laptop: t, desktop: Container.t): unit => {
 
   let content = AppWindow.getContent(win)
 
-  // Create RDP callback that opens remote desktop in the current desktop
-  let rdpCallback: rdpCallback = (remoteState, remoteHost) => {
-    // Use the ref to call openRemoteDesktop (defined later in file)
-    switch openRemoteDesktopRef.contents {
-    | Some(openRdp) => openRdp(laptop, desktop, remoteState, remoteHost)
-    | None => ()
-    }
-  }
-
-  let terminal = createLaptopTerminal(laptop.state, ~width=490.0, ~height=345.0, ~onRdp=rdpCallback, ())
-  let _ = Container.addChild(content, terminal)
+  // Use unified Terminal component (same as servers)
+  let terminal = Terminal.make(
+    ~width=490.0,
+    ~height=345.0,
+    ~prompt=`${laptop.state.hostname}> `,
+    ~ipAddress=laptop.state.ipAddress,
+    ~deviceState=laptop.state,
+    ()
+  )
+  let _ = Container.addChild(content, terminal.container)
 
   let _ = Container.addChild(desktop, win.container)
 }

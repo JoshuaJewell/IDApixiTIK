@@ -2,6 +2,7 @@
 
 import * as Terminal from "./Terminal.res.mjs";
 import * as DeviceTypes from "./types/DeviceTypes.res.mjs";
+import * as LaptopState from "./LaptopState.res.mjs";
 import * as DeviceWindow from "./common/DeviceWindow.res.mjs";
 
 function make(name, ipAddress, securityLevel, param) {
@@ -21,9 +22,35 @@ function getInfo(device) {
         };
 }
 
+var states = {};
+
+function register(ip, state) {
+  states[ip] = state;
+  state.bootTime = (Date.now());
+}
+
+function get(ip) {
+  return states[ip];
+}
+
+var TerminalStates = {
+  states: states,
+  register: register,
+  get: get
+};
+
 function openGUI(device) {
   var win = DeviceWindow.make("TERMINAL - " + device.name + " [" + device.ipAddress + "]", 500.0, 400.0, DeviceTypes.getDeviceColor("Terminal"), 0, undefined);
-  var terminal = Terminal.make(490.0, 360.0, "> ", device.ipAddress, undefined);
+  var s = states[device.ipAddress];
+  var state;
+  if (s !== undefined) {
+    state = s;
+  } else {
+    var newState = LaptopState.createLaptopState(device.ipAddress, device.name, false, undefined);
+    register(device.ipAddress, newState);
+    state = newState;
+  }
+  var terminal = Terminal.make(490.0, 360.0, device.name + "> ", device.ipAddress, state, undefined);
   DeviceWindow.getContent(win).addChild(terminal.container);
   return win;
 }
@@ -42,6 +69,7 @@ function toDevice(t) {
 export {
   make ,
   getInfo ,
+  TerminalStates ,
   openGUI ,
   toDevice ,
 }

@@ -15,6 +15,38 @@ let make = (~name: string, ~ipAddress: string, ~securityLevel: securityLevel, ()
   securityLevel,
 }
 
+// Interval bindings
+let setInterval: (unit => unit, int) => int = %raw(`function(fn, ms) { return setInterval(fn, ms); }`)
+let clearInterval: int => unit = %raw(`function(id) { clearInterval(id); }`)
+let getCurrentTime: unit => float = %raw(`function() { return Date.now(); }`)
+
+// ============================================
+// Router Uptime Module
+// ============================================
+
+module RouterUptime = {
+  let bootTimes: Dict.t<float> = Dict.make()
+
+  let recordBoot = (ip: string): unit => {
+    Dict.set(bootTimes, ip, getCurrentTime())
+  }
+
+  let getUptime = (ip: string): option<float> => {
+    switch Dict.get(bootTimes, ip) {
+    | Some(bootTime) => Some(getCurrentTime() -. bootTime)
+    | None => None
+    }
+  }
+
+  let initialize = (ip: string): unit => {
+    // Only set boot time if not already set
+    switch Dict.get(bootTimes, ip) {
+    | None => recordBoot(ip)
+    | Some(_) => ()
+    }
+  }
+}
+
 let getInfo = (device: t): deviceInfo => {
   name: device.name,
   deviceType: Router,
@@ -46,14 +78,66 @@ let setGlobalNetworkManager = (manager: networkManagerInterface): unit => {
   globalNetworkManagerRef := Some(manager)
 }
 
-let createRouterInterface = (container: Container.t, ipAddress: string): unit => {
+let createRouterInterface = (container: Container.t, ipAddress: string): (unit => unit, int) => {
+  // Initialize router uptime
+  RouterUptime.initialize(ipAddress)
+
   let headerStyle = {"fontFamily": "Arial", "fontSize": 14, "fill": 0xffffff, "fontWeight": "bold"}
   let labelStyle = {"fontFamily": "Arial", "fontSize": 12, "fill": 0xdddddd}
+  let dataStyle = {"fontFamily": "monospace", "fontSize": 10, "fill": 0xaaaaaa}
 
-  let header = Text.make({"text": "Router Configuration", "style": headerStyle})
-  Text.setX(header, 20.0)
-  Text.setY(header, 15.0)
-  let _ = Container.addChildText(container, header)
+  // Traffic simulation state
+  let uploadSpeed = ref(500.0) // KB/s
+  let downloadSpeed = ref(1200.0) // KB/s
+
+  // ============================================
+  // Stats Section (Y: 10)
+  // ============================================
+  let statsY = 10.0
+  let statsBg = Graphics.make()
+  let _ = statsBg
+    ->Graphics.rect(10.0, statsY, 580.0, 50.0)
+    ->Graphics.fill({"color": 0x2a2a2a})
+    ->Graphics.stroke({"width": 1, "color": 0x444444})
+  let _ = Container.addChildGraphics(container, statsBg)
+
+  // Status indicator
+  let isOnline = !PowerManager.isDeviceShutdown(ipAddress)
+  let statusDot = Graphics.make()
+  statusDot->Graphics.circle(25.0, statsY +. 15.0, 6.0)->Graphics.fill({"color": if isOnline { 0x00ff00 } else { 0x666666 }})->ignore
+  let _ = Container.addChildGraphics(container, statusDot)
+
+  let statusLabel = Text.make({"text": "STATUS", "style": {"fontFamily": "Arial", "fontSize": 10, "fill": 0xdddddd}})
+  Text.setX(statusLabel, 40.0)
+  Text.setY(statusLabel, statsY +. 5.0)
+  let _ = Container.addChildText(container, statusLabel)
+
+  let statusText = Text.make({"text": if isOnline { "ONLINE" } else { "OFFLINE" }, "style": {"fontFamily": "monospace", "fontSize": 14, "fill": if isOnline { 0x00ff00 } else { 0xff0000 }}})
+  Text.setX(statusText, 40.0)
+  Text.setY(statusText, statsY +. 20.0)
+  let _ = Container.addChildText(container, statusText)
+
+  // Traffic stat
+  let trafficLabel = Text.make({"text": "TRAFFIC", "style": {"fontFamily": "Arial", "fontSize": 10, "fill": 0xdddddd}})
+  Text.setX(trafficLabel, 230.0)
+  Text.setY(trafficLabel, statsY +. 5.0)
+  let _ = Container.addChildText(container, trafficLabel)
+
+  let trafficText = Text.make({"text": "↑500 KB/s ↓1.2 MB/s", "style": {"fontFamily": "monospace", "fontSize": 14, "fill": 0x00aaff}})
+  Text.setX(trafficText, 230.0)
+  Text.setY(trafficText, statsY +. 20.0)
+  let _ = Container.addChildText(container, trafficText)
+
+  // Uptime stat
+  let uptimeLabel = Text.make({"text": "UPTIME", "style": {"fontFamily": "Arial", "fontSize": 10, "fill": 0xdddddd}})
+  Text.setX(uptimeLabel, 450.0)
+  Text.setY(uptimeLabel, statsY +. 5.0)
+  let _ = Container.addChildText(container, uptimeLabel)
+
+  let uptimeText = Text.make({"text": "0d 0h 0m", "style": {"fontFamily": "monospace", "fontSize": 14, "fill": 0x00ff00}})
+  Text.setX(uptimeText, 450.0)
+  Text.setY(uptimeText, statsY +. 20.0)
+  let _ = Container.addChildText(container, uptimeText)
 
   // Get current DNS from network manager
   let currentDns = switch globalNetworkManagerRef.contents {
@@ -61,11 +145,20 @@ let createRouterInterface = (container: Container.t, ipAddress: string): unit =>
   | None => "8.8.8.8"
   }
 
+  // ============================================
+  // Config Section (Y: 70)
+  // ============================================
+  let configY = 70.0
+  let configHeader = Text.make({"text": "CONFIGURATION", "style": headerStyle})
+  Text.setX(configHeader, 20.0)
+  Text.setY(configHeader, configY)
+  let _ = Container.addChildText(container, configHeader)
+
   // DNS Settings
-  let yPos = ref(50.0)
+  let dnsY = configY +. 30.0
   let dnsLabel = Text.make({"text": "DNS Server:", "style": labelStyle})
   Text.setX(dnsLabel, 20.0)
-  Text.setY(dnsLabel, yPos.contents)
+  Text.setY(dnsLabel, dnsY)
   let _ = Container.addChildText(container, dnsLabel)
 
   // Use @pixi/ui Input component
@@ -76,8 +169,8 @@ let createRouterInterface = (container: Container.t, ipAddress: string): unit =>
     "textStyle": {"fontSize": 11, "fill": 0x000000},
     "padding": 5,
   })
-  PixiUI.Input.setX(dnsInput, 150.0)
-  PixiUI.Input.setY(dnsInput, yPos.contents -. 5.0)
+  PixiUI.Input.setX(dnsInput, 130.0)
+  PixiUI.Input.setY(dnsInput, dnsY -. 5.0)
   let _ = Container.addChild(container, PixiUI.Input.toContainer(dnsInput))
 
   // Update DNS when Enter is pressed
@@ -88,16 +181,10 @@ let createRouterInterface = (container: Container.t, ipAddress: string): unit =>
     }
   })
 
-  // DNS status indicator
-  let dnsStatusRef = ref(Text.make({"text": "", "style": {"fontSize": 9, "fill": 0x00ff00}}))
-  Text.setX(dnsStatusRef.contents, 360.0)
-  Text.setY(dnsStatusRef.contents, yPos.contents +. 3.0)
-  let _ = Container.addChildText(container, dnsStatusRef.contents)
-
-  // Apply button for DNS
+  // Apply button for DNS (positioned to the right of input)
   let applyBtn = Graphics.make()
   let _ = applyBtn
-    ->Graphics.rect(360.0, yPos.contents -. 5.0, 60.0, 25.0)
+    ->Graphics.rect(340.0, dnsY -. 5.0, 60.0, 25.0)
     ->Graphics.fill({"color": 0x0078d4})
     ->Graphics.stroke({"width": 1, "color": 0x005a9e})
   Graphics.setEventMode(applyBtn, "static")
@@ -108,8 +195,8 @@ let createRouterInterface = (container: Container.t, ipAddress: string): unit =>
     "text": "Apply",
     "style": {"fontSize": 10, "fill": 0xffffff, "fontWeight": "bold"},
   })
-  Text.setX(applyText, 375.0)
-  Text.setY(applyText, yPos.contents)
+  Text.setX(applyText, 355.0)
+  Text.setY(applyText, dnsY)
   let _ = Graphics.addChild(applyBtn, applyText)
 
   Graphics.on(applyBtn, "pointertap", _ => {
@@ -121,15 +208,15 @@ let createRouterInterface = (container: Container.t, ipAddress: string): unit =>
   })
 
   // DHCP Toggle
-  yPos := yPos.contents +. 40.0
+  let dhcpY = dnsY +. 40.0
   let dhcpLabel = Text.make({"text": "DHCP:", "style": labelStyle})
   Text.setX(dhcpLabel, 20.0)
-  Text.setY(dhcpLabel, yPos.contents)
+  Text.setY(dhcpLabel, dhcpY)
   let _ = Container.addChildText(container, dhcpLabel)
 
   let dhcpBtn = Graphics.make()
   let _ = dhcpBtn
-    ->Graphics.rect(150.0, yPos.contents -. 5.0, 80.0, 25.0)
+    ->Graphics.rect(130.0, dhcpY -. 5.0, 80.0, 25.0)
     ->Graphics.fill({"color": 0x00ff00})
     ->Graphics.stroke({"width": 1, "color": 0x000000})
   Graphics.setEventMode(dhcpBtn, "static")
@@ -140,65 +227,84 @@ let createRouterInterface = (container: Container.t, ipAddress: string): unit =>
     "text": "ENABLED",
     "style": {"fontSize": 11, "fill": 0x000000, "fontWeight": "bold"},
   })
-  Text.setX(dhcpText, 158.0)
-  Text.setY(dhcpText, yPos.contents)
+  Text.setX(dhcpText, 138.0)
+  Text.setY(dhcpText, dhcpY)
   let _ = Graphics.addChild(dhcpBtn, dhcpText)
 
-  // Connected Devices section
-  yPos := yPos.contents +. 45.0
-  let devHeader = Text.make({"text": "Connected Devices:", "style": headerStyle})
+  // ============================================
+  // Connected Devices Section (Y: 180)
+  // ============================================
+  let devicesY = 180.0
+  let devHeader = Text.make({"text": "CONNECTED DEVICES", "style": headerStyle})
   Text.setX(devHeader, 20.0)
-  Text.setY(devHeader, yPos.contents)
+  Text.setY(devHeader, devicesY)
   let _ = Container.addChildText(container, devHeader)
 
-  // Column headers
-  yPos := yPos.contents +. 25.0
+  // Column headers with STATUS
   let colHeaders = Text.make({
-    "text": "NAME                 IP ADDRESS        MAC ADDRESS",
+    "text": "  NAME                 IP ADDRESS        STATUS",
     "style": {"fontSize": 10, "fill": 0x888888, "fontFamily": "monospace"},
   })
   Text.setX(colHeaders, 20.0)
-  Text.setY(colHeaders, yPos.contents)
+  Text.setY(colHeaders, devicesY +. 22.0)
   let _ = Container.addChildText(container, colHeaders)
 
-  // Get connected devices from network manager
-  let devices = switch globalNetworkManagerRef.contents {
-  | Some(nm) => nm.getConnectedDevices()
-  | None => []
-  }
+  // Container for device list (will be updated)
+  let devicesContainer = Container.make()
+  Container.setY(devicesContainer, devicesY +. 40.0)
+  let _ = Container.addChild(container, devicesContainer)
 
-  yPos := yPos.contents +. 18.0
-  Array.forEach(devices, ((name, ip, mac)) => {
-    let nameStr = String.padEnd(name, 20, " ")
-    let ipStr = String.padEnd(ip, 18, " ")
-    let devText = Text.make({
-      "text": `${nameStr}${ipStr}${mac}`,
+  // ============================================
+  // Routing Table Section (Y: 350)
+  // ============================================
+  let routingY = 350.0
+  let routingHeader = Text.make({"text": "ROUTING TABLE", "style": headerStyle})
+  Text.setX(routingHeader, 20.0)
+  Text.setY(routingHeader, routingY)
+  let _ = Container.addChildText(container, routingHeader)
+
+  // Column headers
+  let routingColHeaders = Text.make({
+    "text": "DESTINATION          GATEWAY            INTERFACE",
+    "style": {"fontSize": 10, "fill": 0x888888, "fontFamily": "monospace"},
+  })
+  Text.setX(routingColHeaders, 20.0)
+  Text.setY(routingColHeaders, routingY +. 22.0)
+  let _ = Container.addChildText(container, routingColHeaders)
+
+  // Static routing table entries
+  let routes = [
+    ("0.0.0.0/0", "10.0.0.1", "WAN"),
+    ("192.168.1.0/24", "0.0.0.0", "LAN"),
+    ("10.0.0.0/24", "0.0.0.0", "VLAN"),
+  ]
+
+  let routingContainer = Container.make()
+  Container.setY(routingContainer, routingY +. 40.0)
+  let _ = Container.addChild(container, routingContainer)
+
+  Array.forEachWithIndex(routes, (route, idx) => {
+    let (dest, gateway, iface) = route
+    let destStr = String.padEnd(dest, 21, " ")
+    let gatewayStr = String.padEnd(gateway, 19, " ")
+    let routeText = Text.make({
+      "text": `${destStr}${gatewayStr}${iface}`,
       "style": {"fontSize": 10, "fill": 0xaaaaaa, "fontFamily": "monospace"},
     })
-    Text.setX(devText, 20.0)
-    Text.setY(devText, yPos.contents)
-    let _ = Container.addChildText(container, devText)
-    yPos := yPos.contents +. 18.0
+    Text.setX(routeText, 20.0)
+    Text.setY(routeText, Int.toFloat(idx) *. 16.0)
+    let _ = Container.addChildText(routingContainer, routeText)
   })
 
-  // Show message if no devices
-  if Array.length(devices) == 0 {
-    let noDevText = Text.make({
-      "text": "(no devices connected)",
-      "style": {"fontSize": 10, "fill": 0x666666, "fontStyle": "italic"},
-    })
-    Text.setX(noDevText, 20.0)
-    Text.setY(noDevText, yPos.contents)
-    let _ = Container.addChildText(container, noDevText)
-  }
-
-  // Power button at bottom right
-  let powerBtnY = 340.0
+  // ============================================
+  // Power Button (Y: 460)
+  // ============================================
+  let powerBtnY = 460.0
   let powerBtn = Graphics.make()
   let isShutdown = PowerManager.isDeviceShutdown(ipAddress)
   let powerBtnColor = if isShutdown { 0x00aa00 } else { 0xaa0000 }
   let _ = powerBtn
-    ->Graphics.rect(350.0, powerBtnY, 100.0, 30.0)
+    ->Graphics.rect(490.0, powerBtnY, 100.0, 30.0)
     ->Graphics.fill({"color": powerBtnColor})
     ->Graphics.stroke({"width": 1, "color": 0x000000})
   Graphics.setEventMode(powerBtn, "static")
@@ -210,7 +316,7 @@ let createRouterInterface = (container: Container.t, ipAddress: string): unit =>
     "style": {"fontSize": 10, "fill": 0xffffff, "fontWeight": "bold"},
   })
   ObservablePoint.set(Text.anchor(powerText), 0.5, ~y=0.5)
-  Text.setX(powerText, 400.0)
+  Text.setX(powerText, 540.0)
   Text.setY(powerText, powerBtnY +. 15.0)
   let _ = Container.addChildText(container, powerText)
 
@@ -220,10 +326,11 @@ let createRouterInterface = (container: Container.t, ipAddress: string): unit =>
       // Boot the device
       if PowerManager.deviceHasPower(ipAddress) {
         PowerManager.bootDevice(ipAddress)
+        RouterUptime.recordBoot(ipAddress)
         Text.setText(powerText, "POWER OFF")
         Graphics.clear(powerBtn)->ignore
         let _ = powerBtn
-          ->Graphics.rect(350.0, powerBtnY, 100.0, 30.0)
+          ->Graphics.rect(490.0, powerBtnY, 100.0, 30.0)
           ->Graphics.fill({"color": 0xaa0000})
           ->Graphics.stroke({"width": 1, "color": 0x000000})
       }
@@ -233,24 +340,133 @@ let createRouterInterface = (container: Container.t, ipAddress: string): unit =>
       Text.setText(powerText, "POWER ON")
       Graphics.clear(powerBtn)->ignore
       let _ = powerBtn
-        ->Graphics.rect(350.0, powerBtnY, 100.0, 30.0)
+        ->Graphics.rect(490.0, powerBtnY, 100.0, 30.0)
         ->Graphics.fill({"color": 0x00aa00})
         ->Graphics.stroke({"width": 1, "color": 0x000000})
     }
   })
+
+  // ============================================
+  // Update Functions
+  // ============================================
+
+  let updateStats = (): unit => {
+    // Update status
+    let isOnline = !PowerManager.isDeviceShutdown(ipAddress)
+    Graphics.clear(statusDot)->ignore
+    statusDot->Graphics.circle(25.0, statsY +. 15.0, 6.0)->Graphics.fill({"color": if isOnline { 0x00ff00 } else { 0x666666 }})->ignore
+    Text.setText(statusText, if isOnline { "ONLINE" } else { "OFFLINE" })
+
+    // Get REAL traffic from active transfers
+    let (realUploadMBps, realDownloadMBps) = NetworkTransfer.getRouterTraffic(ipAddress)
+
+    // Add small background noise for realism (10-50 KB/s = 0.01-0.05 MB/s)
+    let noise = Random.float(0.01, 0.05)
+    uploadSpeed := realUploadMBps +. noise
+    downloadSpeed := realDownloadMBps +. noise
+
+    // Format with units
+    let upStr = if uploadSpeed.contents >= 1.0 {
+      `↑${Float.toFixed(uploadSpeed.contents, ~digits=1)} MB/s`
+    } else {
+      `↑${Float.toFixed(uploadSpeed.contents *. 1024.0, ~digits=0)} KB/s`
+    }
+
+    let downStr = if downloadSpeed.contents >= 1.0 {
+      `↓${Float.toFixed(downloadSpeed.contents, ~digits=1)} MB/s`
+    } else {
+      `↓${Float.toFixed(downloadSpeed.contents *. 1024.0, ~digits=0)} KB/s`
+    }
+
+    Text.setText(trafficText, `${upStr} ${downStr}`)
+
+    // Update uptime
+    switch RouterUptime.getUptime(ipAddress) {
+    | Some(uptimeMs) =>
+      let uptimeSeconds = uptimeMs /. 1000.0
+      let days = Int.fromFloat(uptimeSeconds /. 86400.0)
+      let hours = Int.fromFloat(Float.mod(uptimeSeconds /. 3600.0, 24.0))
+      let minutes = Int.fromFloat(Float.mod(uptimeSeconds /. 60.0, 60.0))
+      Text.setText(uptimeText, `${Int.toString(days)}d ${Int.toString(hours)}h ${Int.toString(minutes)}m`)
+    | None => Text.setText(uptimeText, "0d 0h 0m")
+    }
+  }
+
+  let updateDeviceList = (): unit => {
+    // Clear existing device list
+    Container.removeChildren(devicesContainer)
+
+    // Get connected devices from network manager
+    let devices = switch globalNetworkManagerRef.contents {
+    | Some(nm) => nm.getConnectedDevices()
+    | None => []
+    }
+
+    if Array.length(devices) == 0 {
+      let noDevText = Text.make({
+        "text": "(no devices connected)",
+        "style": {"fontSize": 10, "fill": 0x666666, "fontStyle": "italic"},
+      })
+      Text.setX(noDevText, 20.0)
+      let _ = Container.addChildText(devicesContainer, noDevText)
+    } else {
+      Array.forEachWithIndex(devices, ((name, ip, _mac), idx) => {
+        // Status dot
+        let isActive = DeviceActivity.isActive(ip)
+        let dot = Graphics.make()
+        dot->Graphics.circle(0.0, 6.0, 4.0)->Graphics.fill({"color": if isActive { 0x00ff00 } else { 0x666666 }})->ignore
+        Graphics.setX(dot, 20.0)
+        Graphics.setY(dot, Int.toFloat(idx) *. 16.0)
+        let _ = Container.addChildGraphics(devicesContainer, dot)
+
+        // Device info
+        let nameStr = String.padEnd(name, 20, " ")
+        let ipStr = String.padEnd(ip, 18, " ")
+        let statusStr = if isActive { "ACTIVE" } else { "IDLE" }
+        let devText = Text.make({
+          "text": `  ${nameStr}${ipStr}${statusStr}`,
+          "style": {"fontSize": 10, "fill": 0xaaaaaa, "fontFamily": "monospace"},
+        })
+        Text.setX(devText, 20.0)
+        Text.setY(devText, Int.toFloat(idx) *. 16.0)
+        let _ = Container.addChildText(devicesContainer, devText)
+      })
+    }
+  }
+
+  // Initial updates
+  updateStats()
+  updateDeviceList()
+
+  // Start update interval (2 seconds)
+  let intervalId = setInterval(() => {
+    updateStats()
+    updateDeviceList()
+  }, 2000)
+
+  // Return cleanup function and interval ID
+  let cleanup = () => {
+    clearInterval(intervalId)
+  }
+
+  (cleanup, intervalId)
 }
 
 let openGUI = (device: t): DeviceWindow.t => {
   let win = DeviceWindow.make(
     ~title=`ROUTER - ${device.name} [${device.ipAddress}]`,
-    ~width=500.0,
-    ~height=400.0,
+    ~width=600.0,
+    ~height=500.0,
     ~titleBarColor=getDeviceColor(Router),
     ~backgroundColor=0x1a1a1a,
     (),
   )
 
-  createRouterInterface(DeviceWindow.getContent(win), device.ipAddress)
+  let (cleanup, _intervalId) = createRouterInterface(DeviceWindow.getContent(win), device.ipAddress)
+
+  // Register cleanup callback
+  DeviceWindow.setOnClose(win, cleanup)
+
   win
 }
 

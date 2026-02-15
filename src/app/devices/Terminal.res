@@ -6,6 +6,13 @@ type rec fileNode =
   | Dir({contents: Dict.t<fileNode>})
   | File({content: string, locked: bool})
 
+// SSH session tracking
+type sshSession = {
+  remoteState: LaptopState.laptopState,
+  remoteHost: string,
+  previousDir: string,
+}
+
 type t = {
   container: Container.t,
   bg: Graphics.t,
@@ -16,13 +23,16 @@ type t = {
   mutable showCursor: bool,
   mutable cursorBlink: float,
   inputLine: Text.t,
-  prompt: string,
+  prompt: string,  // Original prompt (for restoring after SSH)
+  mutable currentPrompt: string,  // Current prompt (changes during SSH)
   width: float,
   height: float,
   maxLines: int,
   lineHeight: float,
   filesystem: fileNode,
   ipAddress: option<string>,  // Optional IP of the device this terminal runs on
+  deviceState: option<LaptopState.laptopState>,  // Device state for network operations
+  mutable sshStack: array<sshSession>,  // Track nested SSH sessions
 }
 
 // Create the filesystem
@@ -142,68 +152,107 @@ let addOutput = (terminal: t, text: string): unit => {
 // Update input line display
 let updateInputLine = (terminal: t): unit => {
   let cursor = if terminal.showCursor { "_" } else { " " }
-  Text.setText(terminal.inputLine, terminal.currentDirectory ++ terminal.prompt ++ terminal.currentInput ++ cursor)
+  Text.setText(terminal.inputLine, terminal.currentPrompt ++ terminal.currentInput ++ cursor)
 }
 
 // List directory
-let listDirectory = (terminal: t, path: string): string => {
-  switch resolvePath(terminal, path) {
-  | None => `ls: cannot access '${path}': No such file or directory`
-  | Some(File(_)) => `ls: ${path}: Not a directory`
-  | Some(Dir({contents})) =>
-    let items = Dict.keysToArray(contents)->Array.map(name => {
-      switch Dict.get(contents, name) {
-      | Some(Dir(_)) => `[DIR] ${name}`
-      | Some(File({locked})) =>
-        let lock = if locked { " [LOCKED]" } else { "" }
-        `[FILE] ${name}${lock}`
-      | None => ""
-      }
-    })
-    if Array.length(items) == 0 {
-      "(empty directory)"
+let listDirectory = (terminal: t, path: string, activeIp: string): string => {
+  switch Some(activeIp) {
+  | Some(ip) =>
+    let fullPath = if String.startsWith(path, "C:\\") || String.startsWith(path, "/") {
+      path
     } else {
-      Array.join(items, "\n")
+      terminal.currentDirectory ++ "\\" ++ path
     }
+
+    switch DeviceView.listFiles(ip, fullPath) {
+    | None => `ls: cannot access '${path}': No such file or directory`
+    | Some(items) =>
+      if Array.length(items) == 0 {
+        "(empty directory)"
+      } else {
+        let formatted = Array.map(items, ((name, isDir, isLocked, sizeMB)) => {
+          let typeStr = if isDir { "[DIR] " } else { "[FILE]" }
+          let lockStr = if isLocked { " 🔒" } else { "" }
+          let sizeStr = if sizeMB >= 1.0 {
+            ` (${Float.toFixed(sizeMB, ~digits=1)} MB)`
+          } else if sizeMB > 0.0 {
+            let kb = sizeMB *. 1024.0
+            ` (${Float.toFixed(kb, ~digits=0)} KB)`
+          } else {
+            ""
+          }
+          `${typeStr} ${name}${lockStr}${sizeStr}`
+        })
+        Array.join(formatted, "\n")
+      }
+    }
+  | None => "ls: no device IP configured"
   }
 }
 
 // Change directory
-let changeDirectory = (terminal: t, path: string): string => {
-  if path == ".." {
-    let parts = String.split(terminal.currentDirectory, "/")->Array.filter(p => p != "")
-    let _ = Array.pop(parts)
-    terminal.currentDirectory = "/" ++ Array.join(parts, "/")
-    if terminal.currentDirectory == "/" {
-      terminal.currentDirectory = "/"
-    }
-    ""
-  } else {
-    switch resolvePath(terminal, path) {
-    | None => `cd: ${path}: No such file or directory`
-    | Some(File(_)) => `cd: ${path}: Not a directory`
-    | Some(Dir(_)) =>
-      terminal.currentDirectory = if String.startsWith(path, "/") {
-        path
+let changeDirectory = (terminal: t, path: string, activeIp: string): string => {
+  switch Some(activeIp) {
+  | None => "cd: no device IP configured"
+  | Some(ip) =>
+    if path == ".." {
+      let parts = String.split(terminal.currentDirectory, "\\")->Array.filter(p => p != "" && p != "C:")
+      let _ = Array.pop(parts)
+      terminal.currentDirectory = if Array.length(parts) == 0 {
+        "C:\\"
       } else {
-        terminal.currentDirectory ++ "/" ++ path
-      }
-      if !String.startsWith(terminal.currentDirectory, "/") {
-        terminal.currentDirectory = "/" ++ terminal.currentDirectory
+        "C:\\" ++ Array.join(parts, "\\")
       }
       ""
+    } else {
+      let newPath = if String.startsWith(path, "C:\\") {
+        path
+      } else {
+        terminal.currentDirectory ++ "\\" ++ path
+      }
+
+      // Check if path exists and is a directory
+      switch DeviceView.listFiles(ip, newPath) {
+      | Some(_) =>
+        terminal.currentDirectory = newPath
+        ""
+      | None => `cd: ${path}: No such file or directory`
+      }
     }
   }
 }
 
 // Read file
-let readFile = (terminal: t, path: string): string => {
-  switch resolvePath(terminal, path) {
-  | None => `cat: ${path}: No such file or directory`
-  | Some(Dir(_)) => `cat: ${path}: Is a directory`
-  | Some(File({locked: true, _})) => `cat: ${path}: Permission denied`
-  | Some(File({content, locked: false})) =>
-    if content == "" { "(empty file)" } else { content }
+let readFile = (terminal: t, fileName: string, activeIp: string): string => {
+  switch Some(activeIp) {
+  | None => "cat: no device IP configured"
+  | Some(ip) =>
+    let fullPath = if String.startsWith(fileName, "C:\\") {
+      fileName
+    } else {
+      terminal.currentDirectory ++ "\\" ++ fileName
+    }
+
+    switch DeviceView.readFile(ip, fullPath) {
+    | Ok(content) => if content == "" { "(empty file)" } else { content }
+    | Error(msg) => `cat: ${msg}`
+    }
+  }
+}
+
+// Get active state (local device or SSH'd device)
+let getActiveState = (terminal: t): option<LaptopState.laptopState> => {
+  let sshStackLen = Array.length(terminal.sshStack)
+  if sshStackLen > 0 {
+    // We're SSH'd into a remote machine
+    switch Array.get(terminal.sshStack, sshStackLen - 1) {
+    | Some(session) => Some(session.remoteState)
+    | None => terminal.deviceState
+    }
+  } else {
+    // Local terminal
+    terminal.deviceState
   }
 }
 
@@ -218,6 +267,10 @@ let handleBuiltInCommand = (terminal: t, cmd: string, args: array<string>): stri
   mkdir <name>    - Create directory
   rm <file>       - Remove file
   cp <src> <dst>  - Copy file
+  kill <pid>      - Kill process by PID
+  ssh <host>      - SSH to remote host
+  ping <host>     - Ping remote host
+  exit            - Exit SSH session
   clear           - Clear terminal
   shutdown        - Shutdown this device
   reboot          - Reboot this device
@@ -228,25 +281,245 @@ let handleBuiltInCommand = (terminal: t, cmd: string, args: array<string>): stri
     ""
   | "pwd" => terminal.currentDirectory
   | "ls" =>
-    let path = Array.get(args, 0)->Option.getOr(terminal.currentDirectory)
-    listDirectory(terminal, path)
+    switch getActiveState(terminal) {
+    | None => "ls: no device state"
+    | Some(activeState) =>
+      let path = Array.get(args, 0)->Option.getOr(terminal.currentDirectory)
+      listDirectory(terminal, path, activeState.ipAddress)
+    }
   | "cd" =>
-    let path = Array.get(args, 0)->Option.getOr("/")
-    changeDirectory(terminal, path)
+    switch getActiveState(terminal) {
+    | None => "cd: no device state"
+    | Some(activeState) =>
+      let path = Array.get(args, 0)->Option.getOr("/")
+      changeDirectory(terminal, path, activeState.ipAddress)
+    }
   | "cat" =>
     switch Array.get(args, 0) {
     | None => "cat: missing file operand"
-    | Some(path) => readFile(terminal, path)
+    | Some(path) =>
+      switch getActiveState(terminal) {
+      | None => "cat: no device state"
+      | Some(activeState) => readFile(terminal, path, activeState.ipAddress)
+      }
     }
-  | "mkdir" => "mkdir: operation not yet implemented"
-  | "rm" => "rm: operation requires elevated privileges"
-  | "cp" => "cp: operation not yet implemented"
+  | "mkdir" =>
+    switch Array.get(args, 0) {
+    | None => "mkdir: missing operand"
+    | Some(dirName) =>
+      switch getActiveState(terminal) {
+      | None => "mkdir: no device state"
+      | Some(activeState) =>
+        switch DeviceView.createDirectory(activeState.ipAddress, terminal.currentDirectory, dirName) {
+        | Error(msg) => `mkdir: ${msg}`
+        | Ok() => `Created directory: ${dirName}`
+        }
+      }
+    }
+  | "rm" =>
+    // Parse flags
+    let hasRecursive = Array.some(args, arg => arg == "-r" || arg == "-rf" || arg == "-fr")
+    let hasForce = Array.some(args, arg => arg == "-f" || arg == "-rf" || arg == "-fr")
+
+    // Get filename (skip flags)
+    let fileName = Array.find(args, arg => !String.startsWith(arg, "-"))
+
+    switch fileName {
+    | None => "rm: missing operand"
+    | Some(fileName) =>
+      switch getActiveState(terminal) {
+      | None => "rm: no device state"
+      | Some(activeState) =>
+        switch DeviceView.deleteFile(activeState.ipAddress, terminal.currentDirectory, fileName, hasRecursive) {
+        | Error(msg) =>
+          if hasForce && !String.includes(msg, "Permission") {
+            "" // Force flag: suppress non-permission errors
+          } else {
+            `rm: ${msg}`
+          }
+        | Ok() =>
+          // Log file deletion on servers
+          SystemLogs.addLog(activeState.ipAddress, `File deleted: ${fileName}`, #Info)
+          `Removed '${fileName}'`
+        }
+      }
+    }
+  | "cp" =>
+    switch (Array.get(args, 0), Array.get(args, 1)) {
+    | (None, _) => "cp: missing file operand"
+    | (Some(_), None) => "cp: missing destination file operand"
+    | (Some(sourceName), Some(destName)) =>
+      switch getActiveState(terminal) {
+      | None => "cp: no device state"
+      | Some(activeState) =>
+        let sourcePath = if String.startsWith(sourceName, "C:\\") {
+          sourceName
+        } else {
+          terminal.currentDirectory ++ "\\" ++ sourceName
+        }
+
+        let destPath = terminal.currentDirectory
+
+        switch DeviceView.copyFile(activeState.ipAddress, sourcePath, destPath, destName) {
+        | Error(msg) => `cp: ${msg}`
+        | Ok() => `Copied '${sourceName}' to '${destName}'`
+        }
+      }
+    }
   | "shutdown" =>
     switch terminal.ipAddress {
     | Some(ip) =>
       PowerManager.manualShutdownDevice(ip)
       "System is shutting down..."
     | None => "shutdown: cannot determine device IP"
+    }
+  | "kill" =>
+    switch Array.get(args, 0) {
+    | None => "Usage: kill <pid>"
+    | Some(pidStr) =>
+      switch Int.fromString(pidStr) {
+      | None => "kill: invalid PID"
+      | Some(pid) =>
+        switch getActiveState(terminal) {
+        | None => "kill: no device state"
+        | Some(activeState) =>
+          switch LaptopState.killProcess(activeState.processManager, pid, activeState.ipAddress) {
+          | Ok() =>
+            // Log process termination on servers
+            SystemLogs.addLog(activeState.ipAddress, `Process ${pidStr} terminated`, #Info)
+            `Process ${pidStr} terminated.`
+          | Error(err) => `kill: ${err}`
+          }
+        }
+      }
+    }
+  | "ssh" =>
+    switch Array.get(args, 0) {
+    | None => "Usage: ssh <user@host>"
+    | Some(target) =>
+      switch getActiveState(terminal) {
+      | None => "ssh: terminal not properly initialized"
+      | Some(activeState) =>
+        LaptopState.addCpuSpike(activeState.processManager, 2.0)
+        // Parse user@host or just host
+        let sshParts = String.split(target, "@")
+        let host = if Array.length(sshParts) > 1 {
+          Array.get(sshParts, 1)->Option.getOr(target)
+        } else {
+          target
+        }
+        // Check if host has SSH via network interface
+        switch activeState.networkInterface {
+        | Some(ni) =>
+          if ni.hasSSH(host) {
+            // Get the remote state for this host
+            switch ni.getRemoteState(host) {
+            | Some(remoteState) =>
+              // Spawn SSH client process on current host
+              let clientPid = LaptopState.openApp(activeState.processManager, "ssh.exe")
+              // Spawn SSHD connection handler on remote host
+              let _ = LaptopState.openApp(remoteState.processManager, "sshd.exe")
+
+              // Record activity for both source and destination devices
+              DeviceActivity.recordActivity(activeState.ipAddress)
+              DeviceActivity.recordActivity(host)
+
+              // Log SSH connection on server if it's a server device
+              SystemLogs.addLog(host, `SSH connection from ${activeState.ipAddress}`, #Info)
+
+              // Push SSH session onto stack
+              let session: sshSession = {
+                remoteState,
+                remoteHost: host,
+                previousDir: terminal.currentDirectory,
+              }
+              terminal.sshStack = Array.concat(terminal.sshStack, [session])
+              // Reset current directory for remote session (start at root)
+              terminal.currentDirectory = "C:\\"
+              // Update prompt to show remote hostname
+              terminal.currentPrompt = `${remoteState.hostname}> `
+              `Connecting to ${host}...
+[Local PID ${Int.toString(clientPid)}] SSH client started
+SSH connection established to ${remoteState.hostname}.
+Welcome to ${remoteState.hostname}
+Type 'exit' to disconnect.`
+            | None =>
+              `ssh: connect to host ${host}: Connection refused`
+            }
+          } else if ni.ping(host) {
+            `ssh: connect to host ${host}: Connection refused
+(SSH service not running on this host)`
+          } else {
+            `ssh: connect to host ${host}: No route to host`
+          }
+        | None =>
+          `ssh: connect to host ${target}: Connection refused
+(No network interface available)`
+        }
+      }
+    }
+  | "ping" =>
+    switch Array.get(args, 0) {
+    | None => "Usage: ping <host>"
+    | Some(host) =>
+      switch getActiveState(terminal) {
+      | None => "ping: terminal not properly initialized"
+      | Some(activeState) =>
+        LaptopState.addCpuSpike(activeState.processManager, 1.0)
+        switch activeState.networkInterface {
+        | Some(ni) =>
+          if ni.ping(host) {
+            `Pinging ${host}...
+
+Reply from ${host}: bytes=32 time=12ms TTL=64
+Reply from ${host}: bytes=32 time=15ms TTL=64
+Reply from ${host}: bytes=32 time=10ms TTL=64
+
+Ping statistics for ${host}:
+    Packets: Sent = 3, Received = 3, Lost = 0 (0% loss)`
+          } else {
+            `Pinging ${host}...
+Request timed out.
+Request timed out.
+Request timed out.
+
+Ping statistics for ${host}:
+    Packets: Sent = 3, Received = 0, Lost = 3 (100% loss)`
+          }
+        | None => "ping: No network interface available"
+        }
+      }
+    }
+  | "exit" =>
+    // Check if we're in an SSH session
+    if Array.length(terminal.sshStack) > 0 {
+      // Pop the SSH session
+      switch Array.get(terminal.sshStack, Array.length(terminal.sshStack) - 1) {
+      | Some(session) =>
+        // Log SSH disconnection on server
+        SystemLogs.addLog(session.remoteHost, `SSH connection closed from client`, #Info)
+
+        // Restore previous directory
+        terminal.currentDirectory = session.previousDir
+        terminal.sshStack = Array.slice(terminal.sshStack, ~start=0, ~end=Array.length(terminal.sshStack) - 1)
+
+        // Restore prompt to show current host (either local or previous SSH'd host)
+        terminal.currentPrompt = if Array.length(terminal.sshStack) > 0 {
+          // Still in an SSH session (nested)
+          switch Array.get(terminal.sshStack, Array.length(terminal.sshStack) - 1) {
+          | Some(prevSession) => `${prevSession.remoteState.hostname}> `
+          | None => terminal.prompt
+          }
+        } else {
+          // Back to local terminal
+          terminal.prompt
+        }
+
+        `Connection to ${session.remoteHost} closed.`
+      | None => ""
+      }
+    } else {
+      "exit: not in SSH session (use 'shutdown' to power off)"
     }
   | "reboot" =>
     switch terminal.ipAddress {
@@ -329,16 +602,36 @@ let handleKeyInput = (terminal: t, key: string): unit => {
 }
 
 // Setup keyboard handler (external JS)
-let setupGlobalKeyboardHandler: (unit => option<t>, (t, string) => unit) => unit = %raw(`
-  function(getFocused, handleKey) {
+let setupGlobalKeyboardHandler: (unit => option<t>, (t, string) => unit, unit => unit) => unit = %raw(`
+  function(getFocused, handleKey, unfocusAll) {
     if (!window.__terminalKeyboardSetup) {
       window.__terminalKeyboardSetup = true;
       console.log('[Terminal] Setting up global keyboard handler');
+
+      // Unfocus terminal when clicking on input elements
+      document.addEventListener('focusin', (e) => {
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+          console.log('[Terminal] DOM input focused, unfocusing terminal');
+          unfocusAll();
+        }
+      });
+
       window.addEventListener('keydown', (e) => {
         const focused = getFocused();
         // PixiJS v8 uses 'visible' property, check if container exists and is visible
         const isVisible = focused?.container?.visible !== false;
         if (!focused || !isVisible) return;
+
+        // Check if any DOM input/textarea has focus (PixiUI inputs, HTML inputs, etc.)
+        const activeElement = document.activeElement;
+        if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+          return; // DOM input has focus, don't handle terminal input
+        }
+
+        // Check if any PixiUI Input is focused (they set a global flag)
+        if (window.__pixiui_input_focused) {
+          return; // PixiUI Input has focus, don't handle terminal input
+        }
 
         // Only prevent default for our terminal keys
         if (e.key === 'Enter' || e.key === 'Backspace' || (e.key.length === 1 && !e.ctrlKey && !e.metaKey)) {
@@ -371,7 +664,7 @@ let unfocus = (terminal: t): unit => {
 }
 
 // Create a terminal
-let make = (~width: float, ~height: float, ~prompt: string="> ", ~ipAddress: option<string>=?, ()): t => {
+let make = (~width: float, ~height: float, ~prompt: string="> ", ~ipAddress: option<string>=?, ~deviceState: option<LaptopState.laptopState>=?, ()): t => {
   let container = Container.make()
   Container.setEventMode(container, "static")
 
@@ -389,23 +682,30 @@ let make = (~width: float, ~height: float, ~prompt: string="> ", ~ipAddress: opt
   Text.setY(inputLine, height -. 25.0)
   let _ = Container.addChildText(container, inputLine)
 
+  // Calculate maxLines based on height (leave room for input line)
+  let lineHeight = 16.0
+  let maxLines = Int.fromFloat((height -. 30.0) /. lineHeight) // 30px for input + padding
+
   let terminal = {
     container,
     bg,
     outputLines: [],
     commandHistory: [],
-    currentDirectory: "/",
+    currentDirectory: "C:\\",
     currentInput: "",
     showCursor: true,
     cursorBlink: 0.0,
     inputLine,
     prompt,
+    currentPrompt: prompt,  // Start with original prompt
     width,
     height,
-    maxLines: 20,
-    lineHeight: 16.0,
+    maxLines,
+    lineHeight,
     filesystem: createFilesystem(),
     ipAddress,
+    deviceState,
+    sshStack: [],
   }
 
   // Welcome message
@@ -417,9 +717,13 @@ let make = (~width: float, ~height: float, ~prompt: string="> ", ~ipAddress: opt
     focus(terminal)
   })
 
+  // Unfocus when clicking outside the terminal
+  // (handled by parent containers/windows that implement click-to-focus)
+
   // Setup the global keyboard handler (only adds listener once)
-  // Pass in the getter and handler functions so JS can call them
-  setupGlobalKeyboardHandler(getGlobalFocusedTerminal, handleKeyInput)
+  // Pass in the getter, handler, and unfocus functions so JS can call them
+  let unfocusAll = () => setGlobalFocusedTerminal(None)
+  setupGlobalKeyboardHandler(getGlobalFocusedTerminal, handleKeyInput, unfocusAll)
 
   terminal
 }

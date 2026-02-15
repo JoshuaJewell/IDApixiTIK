@@ -19,6 +19,7 @@ import * as RouterDevice from "../devices/RouterDevice.res.mjs";
 import * as DesktopDevice from "../devices/DesktopDevice.res.mjs";
 import * as NetworkDesktop from "../popups/NetworkDesktop.res.mjs";
 import * as NetworkManager from "../devices/NetworkManager.res.mjs";
+import * as NetworkTransfer from "../devices/NetworkTransfer.res.mjs";
 import * as GlobalNetworkManager from "../devices/GlobalNetworkManager.res.mjs";
 
 var assetBundles = ["main"];
@@ -723,6 +724,7 @@ function make$1() {
             }),
           update: (function (ticker) {
               var dt = ticker.deltaTime / 60.0;
+              NetworkTransfer.updateTransfers(dt);
               var worldContainerX = worldContainer.x;
               var mouseWorldX = globalMouseScreenPos.screenX - worldContainerX;
               var mouseWorldY = globalMouseScreenPos.screenY;

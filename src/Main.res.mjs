@@ -2,12 +2,22 @@
 
 import * as Engine from "./engine/Engine.res.mjs";
 import * as GetEngine from "./app/GetEngine.res.mjs";
+import * as LabScreen from "./app/screens/locations/LabScreen.res.mjs";
+import * as CityScreen from "./app/screens/locations/CityScreen.res.mjs";
 import * as LoadScreen from "./app/screens/LoadScreen.res.mjs";
 import * as $$Navigation from "./engine/navigation/Navigation.res.mjs";
 import * as Sound from "@pixi/sound";
-import * as WorldScreen from "./app/screens/WorldScreen.res.mjs";
+import * as AtlasScreen from "./app/screens/locations/AtlasScreen.res.mjs";
+import * as FieldScreen from "./app/screens/locations/FieldScreen.res.mjs";
+import * as NexusScreen from "./app/screens/locations/NexusScreen.res.mjs";
+import * as DevHubScreen from "./app/screens/locations/DevHubScreen.res.mjs";
 import * as UserSettings from "./app/utils/UserSettings.res.mjs";
 import * as Core__Promise from "@rescript/core/src/Core__Promise.res.mjs";
+import * as BackboneScreen from "./app/screens/locations/BackboneScreen.res.mjs";
+import * as RuralISPScreen from "./app/screens/locations/RuralISPScreen.res.mjs";
+import * as WorldMapScreen from "./app/screens/WorldMapScreen.res.mjs";
+import * as BusinessISPScreen from "./app/screens/locations/BusinessISPScreen.res.mjs";
+import * as RegionalISPScreen from "./app/screens/locations/RegionalISPScreen.res.mjs";
 
 var log = (function(msg) { console.log(msg) });
 
@@ -30,9 +40,9 @@ async function startApp() {
   log("Showing load screen...");
   await $$Navigation.showScreen(engine.navigation, LoadScreen.constructor);
   log("Load screen shown");
-  log("Showing world screen...");
-  await $$Navigation.showScreen(engine.navigation, WorldScreen.constructor);
-  return log("World screen shown");
+  log("Showing world map screen...");
+  await $$Navigation.showScreen(engine.navigation, WorldMapScreen.constructor);
+  return log("World map screen shown");
 }
 
 log("Main.res loading...");

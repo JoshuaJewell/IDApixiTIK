@@ -1,12 +1,28 @@
 // Central network manager for all devices
-// Implements star topology with router at center
+// Implements zone-based network segmentation with proper isolation
 
 open DeviceTypes
 
-// Network topology: star with router at center
-// 192.168.1.x subnet (LAN) - all devices connect to router
-// 10.0.0.x subnet (Server VLAN) - connects through router
-// Router bridges both subnets
+// Network topology: Segmented zones with firewalls
+// Edge Networks:
+//   - 192.168.1.x (Downtown LAN) - Corporate employee workstations
+//   - 192.168.2.x (Rural LAN) - Home network at rural outpost
+// Downtown Office Zones:
+//   - 10.0.0.x (DMZ) - Internet-facing services (Mail, VPN)
+//   - 10.0.1.x (Internal Apps) - Protected business services (DB, Intranet, LDAP)
+//   - 10.0.2.x (Development) - Dev/test environment
+//   - 10.0.3.x (Security) - IDS/IPS, SIEM, Backup
+//   - 172.16.0.x (Management) - Network administration
+//   - 192.168.100.x (IoT) - Cameras, sensors, smart devices
+//   - 10.10.1.x (SCADA) - Industrial control (air-gapped)
+// ISP Infrastructure:
+//   - 100.64.x.x (Tier 3 ISPs) - Local access providers
+//   - 198.51.100.x (Tier 2 ISP) - Regional aggregation
+//   - 203.0.113.x (Tier 1 Backbone) - Core internet routing
+// Public Services:
+//   - 8.8.8.x, 142.250.x.x (Atlas Network)
+//   - 1.1.1.x, 104.16.x.x (Nexus Network)
+//   - 140.82.x.x (DevHub Network)
 
 // DNS record type
 type dnsRecord = {
@@ -56,31 +72,41 @@ let isRouter = (ip: string, routerIp: string): bool => {
 
 // Initialize DNS servers
 let initializeDnsServers = (manager: t): unit => {
-  // Google DNS server at 8.8.8.8 (external, always reachable via router)
+  // Atlas DNS server at 8.8.8.8 (external, always reachable via router)
   Dict.set(manager.dnsServers, "8.8.8.8", {
     ip: "8.8.8.8",
     isOnline: true,
     records: [
-      {hostname: "google.com", ip: "142.250.80.46"},
-      {hostname: "www.google.com", ip: "142.250.80.46"},
-      {hostname: "github.com", ip: "140.82.121.4"},
-      {hostname: "www.github.com", ip: "140.82.121.4"},
-      {hostname: "corp-intranet.local", ip: "10.0.0.100"},
+      // Public internet services
+      {hostname: "atlas.com", ip: "142.250.80.46"},
+      {hostname: "www.atlas.com", ip: "142.250.80.46"},
+      {hostname: "devhub.com", ip: "140.82.121.4"},
+      {hostname: "www.devhub.com", ip: "140.82.121.4"},
+      {hostname: "nexus.com", ip: "104.16.132.229"},
+      {hostname: "www.nexus.com", ip: "104.16.132.229"},
+      // Corporate DMZ services (public-facing)
       {hostname: "mail.corp.local", ip: "10.0.0.25"},
-      {hostname: "files.corp.local", ip: "10.0.0.50"},
-      {hostname: "dev.corp.local", ip: "10.0.0.77"},
-      {hostname: "admin-panel.local", ip: "192.168.1.200"},
-      {hostname: "secret-server.local", ip: "10.0.0.99"},
+      {hostname: "vpn.corp.local", ip: "10.0.0.100"},
+      // Corporate Internal services (protected)
+      {hostname: "ldap.corp.local", ip: "10.0.1.10"},
+      {hostname: "files.corp.local", ip: "10.0.1.50"},
+      {hostname: "corp-intranet.local", ip: "10.0.1.100"},
+      {hostname: "secret-server.local", ip: "10.0.1.99"},
+      {hostname: "fileserver.corp.local", ip: "10.0.1.200"},
+      // Development
+      {hostname: "dev.corp.local", ip: "10.0.2.77"},
+      // Management
+      {hostname: "admin-panel.local", ip: "172.16.0.200"},
     ],
   })
-  // Secondary DNS (Cloudflare) - also external
+  // Secondary DNS (Nexus) - also external
   Dict.set(manager.dnsServers, "1.1.1.1", {
     ip: "1.1.1.1",
     isOnline: true,
     records: [
-      {hostname: "google.com", ip: "142.250.80.46"},
-      {hostname: "github.com", ip: "140.82.121.4"},
-      {hostname: "cloudflare.com", ip: "104.16.132.229"},
+      {hostname: "atlas.com", ip: "142.250.80.46"},
+      {hostname: "devhub.com", ip: "140.82.121.4"},
+      {hostname: "nexus.com", ip: "104.16.132.229"},
     ],
   })
 }
@@ -88,153 +114,385 @@ let initializeDnsServers = (manager: t): unit => {
 // Initialize the network with default devices
 let initializeNetwork = (manager: t): unit => {
   // ========================================
-  // LOCAL NETWORK (192.168.1.x) - LAN
+  // INITIALIZE GLOBAL NETWORK STATE
   // ========================================
 
-  // WiFi Router (connects all 192.168.1.x devices, gateway to internet)
+  // Initialize global content store (hash-based deduplication)
+  GlobalNetworkData.initializeDefaultContent()
+
+  // Initialize device filesystems (trees with content references)
+  DeviceView.initializeDefaultFilesystems()
+
+  // ========================================
+  // DOWNTOWN OFFICE (192.168.1.x) - Main Corporate LAN
+  // ========================================
+
+  // Downtown Router (corporate office, gateway to internet and DMZ)
   Dict.set(manager.devices, "192.168.1.1", DeviceFactory.createDevice(
     ~deviceType=Router,
-    ~name="WIFI-ROUTER",
+    ~name="DOWNTOWN-ROUTER",
     ~ipAddress="192.168.1.1",
-    ~securityLevel=Weak,
+    ~securityLevel=Medium,
   ))
-  // First laptop (player's main laptop)
+  // Corp laptop 1
   Dict.set(manager.devices, "192.168.1.102", DeviceFactory.createDevice(
     ~deviceType=Laptop,
     ~name="CORP-LAPTOP-42",
     ~ipAddress="192.168.1.102",
     ~securityLevel=Medium,
   ))
-  // Second laptop (target laptop on the same network)
+  // Corp laptop 2
   Dict.set(manager.devices, "192.168.1.103", DeviceFactory.createDevice(
     ~deviceType=Laptop,
     ~name="CORP-LAPTOP-17",
     ~ipAddress="192.168.1.103",
     ~securityLevel=Weak,
   ))
-  // Security camera (worldX matches position in WorldScreen devicePositions)
-  Dict.set(manager.devices, "192.168.1.105", DeviceFactory.createDevice(
+
+  // ========================================
+  // RURAL OUTPOST (192.168.2.x) - Remote Home Network
+  // ========================================
+
+  // Rural router
+  Dict.set(manager.devices, "192.168.2.1", DeviceFactory.createDevice(
+    ~deviceType=Router,
+    ~name="RURAL-ROUTER",
+    ~ipAddress="192.168.2.1",
+    ~securityLevel=Weak,
+  ))
+  // Rural laptop (player start location)
+  Dict.set(manager.devices, "192.168.2.100", DeviceFactory.createDevice(
+    ~deviceType=Laptop,
+    ~name="HOME-LAPTOP",
+    ~ipAddress="192.168.2.100",
+    ~securityLevel=Weak,
+  ))
+
+  // ========================================
+  // IoT NETWORK (192.168.100.x) - Isolated IoT devices
+  // ========================================
+
+  // IoT Router (gateway for IoT network)
+  Dict.set(manager.devices, "192.168.100.1", DeviceFactory.createDevice(
+    ~deviceType=Router,
+    ~name="IOT-ROUTER",
+    ~ipAddress="192.168.100.1",
+    ~securityLevel=Weak,
+  ))
+  // Security camera (moved from LAN to IoT network)
+  Dict.set(manager.devices, "192.168.100.10", DeviceFactory.createDevice(
     ~deviceType=IotCamera,
     ~name="CAM-ENTRANCE",
-    ~ipAddress="192.168.1.105",
+    ~ipAddress="192.168.100.10",
     ~securityLevel=Open,
-    ~worldX=1050.0,
-  ))
-  // Admin panel (internal web server)
-  Dict.set(manager.devices, "192.168.1.200", DeviceFactory.createDevice(
-    ~deviceType=Server,
-    ~name="ADMIN-PANEL",
-    ~ipAddress="192.168.1.200",
-    ~securityLevel=Medium,
   ))
 
   // ========================================
-  // POWER INFRASTRUCTURE
+  // DMZ (10.0.0.x) - Internet-facing services ONLY
   // ========================================
 
-  // Main Power Station (powers everything)
-  Dict.set(manager.devices, "192.168.1.250", DeviceFactory.createDevice(
-    ~deviceType=PowerStation,
-    ~name="MAIN-PWR-STATION",
-    ~ipAddress="192.168.1.250",
-    ~securityLevel=Medium,
+  // External Firewall (boundary between internet and DMZ)
+  Dict.set(manager.devices, "10.0.0.1", DeviceFactory.createDevice(
+    ~deviceType=Router, // TODO: Create Firewall device type
+    ~name="FIREWALL-EXT",
+    ~ipAddress="10.0.0.1",
+    ~securityLevel=Strong,
   ))
-
-  // UPS Unit (connected to power station, protects router and servers)
-  Dict.set(manager.devices, "192.168.1.251", DeviceFactory.createDevice(
-    ~deviceType=UPS,
-    ~name="UPS-CRITICAL",
-    ~ipAddress="192.168.1.251",
-    ~securityLevel=Open,
-    ~connectedStationIp="192.168.1.250",
-  ))
-
-  // Connect critical devices to UPS
-  PowerManager.connectDeviceToUPS("192.168.1.1", "192.168.1.251")    // Router
-  PowerManager.connectDeviceToUPS("192.168.1.200", "192.168.1.251")  // Admin panel
-  PowerManager.connectDeviceToUPS("10.0.0.25", "192.168.1.251")      // Mail server
-  PowerManager.connectDeviceToUPS("10.0.0.50", "192.168.1.251")      // DB server
-
-  // ========================================
-  // CORPORATE VLAN (10.0.0.x) - Server Network
-  // ========================================
-
-  // Mail server
+  // Mail server (internet-facing, receives external email)
   Dict.set(manager.devices, "10.0.0.25", DeviceFactory.createDevice(
     ~deviceType=Server,
     ~name="MAIL-SERVER",
     ~ipAddress="10.0.0.25",
     ~securityLevel=Strong,
   ))
-  // Database server (files.corp.local)
-  Dict.set(manager.devices, "10.0.0.50", DeviceFactory.createDevice(
-    ~deviceType=Server,
-    ~name="DB-SERVER-01",
-    ~ipAddress="10.0.0.50",
-    ~securityLevel=Strong,
-  ))
-  // Development terminal (dev.corp.local)
-  Dict.set(manager.devices, "10.0.0.77", DeviceFactory.createDevice(
-    ~deviceType=Terminal,
-    ~name="DEV-TERMINAL",
-    ~ipAddress="10.0.0.77",
-    ~securityLevel=Weak,
-  ))
-  // Secret server (hidden)
-  Dict.set(manager.devices, "10.0.0.99", DeviceFactory.createDevice(
-    ~deviceType=Server,
-    ~name="SECRET-SERVER",
-    ~ipAddress="10.0.0.99",
-    ~securityLevel=Strong,
-  ))
-  // Corporate intranet
+  // VPN server (remote access gateway)
   Dict.set(manager.devices, "10.0.0.100", DeviceFactory.createDevice(
     ~deviceType=Server,
-    ~name="CORP-INTRANET",
+    ~name="VPN-SERVER",
     ~ipAddress="10.0.0.100",
+    ~securityLevel=Strong,
+  ))
+
+  // ========================================
+  // INTERNAL APPS (10.0.1.x) - Protected business services
+  // ========================================
+
+  // Internal Firewall (boundary between DMZ and Internal)
+  Dict.set(manager.devices, "10.0.1.1", DeviceFactory.createDevice(
+    ~deviceType=Router, // TODO: Create Firewall device type
+    ~name="FIREWALL-INT",
+    ~ipAddress="10.0.1.1",
+    ~securityLevel=Strong,
+  ))
+  // LDAP/Active Directory (central authentication)
+  Dict.set(manager.devices, "10.0.1.10", DeviceFactory.createDevice(
+    ~deviceType=Server,
+    ~name="LDAP-SERVER",
+    ~ipAddress="10.0.1.10",
+    ~securityLevel=Strong,
+  ))
+  // Database server (files.corp.local)
+  Dict.set(manager.devices, "10.0.1.50", DeviceFactory.createDevice(
+    ~deviceType=Server,
+    ~name="DB-SERVER-01",
+    ~ipAddress="10.0.1.50",
+    ~securityLevel=Strong,
+  ))
+  // Secret server (hidden, high-value target)
+  Dict.set(manager.devices, "10.0.1.99", DeviceFactory.createDevice(
+    ~deviceType=Server,
+    ~name="SECRET-SERVER",
+    ~ipAddress="10.0.1.99",
+    ~securityLevel=Strong,
+  ))
+  // Corporate intranet (internal web portal)
+  Dict.set(manager.devices, "10.0.1.100", DeviceFactory.createDevice(
+    ~deviceType=Server,
+    ~name="CORP-INTRANET",
+    ~ipAddress="10.0.1.100",
     ~securityLevel=Medium,
+  ))
+  // File server (shared storage)
+  Dict.set(manager.devices, "10.0.1.200", DeviceFactory.createDevice(
+    ~deviceType=Server,
+    ~name="FILE-SERVER",
+    ~ipAddress="10.0.1.200",
+    ~securityLevel=Medium,
+  ))
+
+  // ========================================
+  // DEVELOPMENT (10.0.2.x) - Dev/test environment
+  // ========================================
+
+  // Development terminal (dev.corp.local)
+  Dict.set(manager.devices, "10.0.2.77", DeviceFactory.createDevice(
+    ~deviceType=Terminal,
+    ~name="DEV-TERMINAL",
+    ~ipAddress="10.0.2.77",
+    ~securityLevel=Weak,
+  ))
+
+  // ========================================
+  // SECURITY/MONITORING (10.0.3.x) - IDS/IPS, SIEM, Backup
+  // ========================================
+
+  // IDS/IPS (intrusion detection/prevention)
+  Dict.set(manager.devices, "10.0.3.10", DeviceFactory.createDevice(
+    ~deviceType=Server,
+    ~name="IDS-IPS",
+    ~ipAddress="10.0.3.10",
+    ~securityLevel=Strong,
+  ))
+  // SIEM/Log Server (security information and event management)
+  Dict.set(manager.devices, "10.0.3.20", DeviceFactory.createDevice(
+    ~deviceType=Server,
+    ~name="SIEM-SERVER",
+    ~ipAddress="10.0.3.20",
+    ~securityLevel=Strong,
+  ))
+  // Backup Server (data backup and recovery)
+  Dict.set(manager.devices, "10.0.3.30", DeviceFactory.createDevice(
+    ~deviceType=Server,
+    ~name="BACKUP-SERVER",
+    ~ipAddress="10.0.3.30",
+    ~securityLevel=Strong,
+  ))
+
+  // ========================================
+  // MANAGEMENT VLAN (172.16.0.x) - Network management tools
+  // ========================================
+
+  // Admin panel (network administration interface)
+  Dict.set(manager.devices, "172.16.0.200", DeviceFactory.createDevice(
+    ~deviceType=Server,
+    ~name="ADMIN-PANEL",
+    ~ipAddress="172.16.0.200",
+    ~securityLevel=Medium,
+  ))
+
+  // ========================================
+  // SCADA (10.10.1.x) - Industrial control (air-gapped)
+  // ========================================
+
+  // SCADA Controller (power distribution control)
+  Dict.set(manager.devices, "10.10.1.1", DeviceFactory.createDevice(
+    ~deviceType=Server,
+    ~name="SCADA-CONTROLLER",
+    ~ipAddress="10.10.1.1",
+    ~securityLevel=Strong,
+  ))
+  // Main Power Station (moved from LAN to SCADA network)
+  Dict.set(manager.devices, "10.10.1.100", DeviceFactory.createDevice(
+    ~deviceType=PowerStation,
+    ~name="MAIN-PWR-STATION",
+    ~ipAddress="10.10.1.100",
+    ~securityLevel=Medium,
+  ))
+
+  // UPS Unit (downtown office, protects critical business systems)
+  Dict.set(manager.devices, "192.168.1.251", DeviceFactory.createDevice(
+    ~deviceType=UPS,
+    ~name="UPS-CRITICAL",
+    ~ipAddress="192.168.1.251",
+    ~securityLevel=Open,
+    ~connectedStationIp="10.10.1.100", // Updated to new power station IP
+  ))
+
+  // Connect critical downtown devices to UPS
+  PowerManager.connectDeviceToUPS("192.168.1.1", "192.168.1.251")    // Main router
+  PowerManager.connectDeviceToUPS("10.0.0.25", "192.168.1.251")      // Mail server (DMZ)
+  PowerManager.connectDeviceToUPS("10.0.1.50", "192.168.1.251")      // DB server (Internal)
+  PowerManager.connectDeviceToUPS("172.16.0.200", "192.168.1.251")   // Admin panel (Management)
+
+  // ========================================
+  // ISP INFRASTRUCTURE - Tiered Routing
+  // ========================================
+
+  // Tier 3: Local/Access ISPs (connect end users)
+  Dict.set(manager.devices, "100.64.1.1", DeviceFactory.createDevice(
+    ~deviceType=Router,
+    ~name="RURAL-ISP",
+    ~ipAddress="100.64.1.1",
+    ~securityLevel=Medium,
+  ))
+  Dict.set(manager.devices, "100.64.2.1", DeviceFactory.createDevice(
+    ~deviceType=Router,
+    ~name="BUSINESS-ISP",
+    ~ipAddress="100.64.2.1",
+    ~securityLevel=Medium,
+  ))
+
+  // Tier 2: Regional ISP (aggregates local ISPs)
+  Dict.set(manager.devices, "198.51.100.1", DeviceFactory.createDevice(
+    ~deviceType=Router,
+    ~name="REGIONAL-ISP",
+    ~ipAddress="198.51.100.1",
+    ~securityLevel=Strong,
+  ))
+
+  // ========================================
+  // TIER 1: INTERNET BACKBONE RING (Global routing)
+  // ========================================
+  // 5 continental backbone servers in a ring topology
+  // Each connects to 2 neighbors to form a redundant ring
+
+  // North America Backbone
+  Dict.set(manager.devices, "203.0.113.1", DeviceFactory.createDevice(
+    ~deviceType=Router,
+    ~name="NA-BACKBONE",
+    ~ipAddress="203.0.113.1",
+    ~securityLevel=Strong,
+  ))
+
+  // Europe Backbone
+  Dict.set(manager.devices, "203.0.113.2", DeviceFactory.createDevice(
+    ~deviceType=Router,
+    ~name="EU-BACKBONE",
+    ~ipAddress="203.0.113.2",
+    ~securityLevel=Strong,
+  ))
+
+  // Asia Backbone
+  Dict.set(manager.devices, "203.0.113.3", DeviceFactory.createDevice(
+    ~deviceType=Router,
+    ~name="ASIA-BACKBONE",
+    ~ipAddress="203.0.113.3",
+    ~securityLevel=Strong,
+  ))
+
+  // South America Backbone
+  Dict.set(manager.devices, "203.0.113.4", DeviceFactory.createDevice(
+    ~deviceType=Router,
+    ~name="SA-BACKBONE",
+    ~ipAddress="203.0.113.4",
+    ~securityLevel=Strong,
+  ))
+
+  // Africa Backbone
+  Dict.set(manager.devices, "203.0.113.5", DeviceFactory.createDevice(
+    ~deviceType=Router,
+    ~name="AF-BACKBONE",
+    ~ipAddress="203.0.113.5",
+    ~securityLevel=Strong,
   ))
 
   // ========================================
   // EXTERNAL INTERNET (Public IPs)
   // ========================================
 
-  // DNS Servers
+  // Atlas Data Center (8.8.8.x)
+  Dict.set(manager.devices, "8.8.8.1", DeviceFactory.createDevice(
+    ~deviceType=Router,
+    ~name="ATLAS-ROUTER",
+    ~ipAddress="8.8.8.1",
+    ~securityLevel=Strong,
+  ))
   Dict.set(manager.devices, "8.8.8.8", DeviceFactory.createDevice(
     ~deviceType=Server,
-    ~name="GOOGLE-DNS",
+    ~name="ATLAS-DNS",
     ~ipAddress="8.8.8.8",
+    ~securityLevel=Strong,
+  ))
+  Dict.set(manager.devices, "142.250.80.46", DeviceFactory.createDevice(
+    ~deviceType=Server,
+    ~name="ATLAS-WEB",
+    ~ipAddress="142.250.80.46",
+    ~securityLevel=Strong,
+  ))
+
+  // Nexus CDN (1.1.1.x / 104.16.x.x)
+  Dict.set(manager.devices, "1.1.1.254", DeviceFactory.createDevice(
+    ~deviceType=Router,
+    ~name="NEXUS-ROUTER",
+    ~ipAddress="1.1.1.254",
     ~securityLevel=Strong,
   ))
   Dict.set(manager.devices, "1.1.1.1", DeviceFactory.createDevice(
     ~deviceType=Server,
-    ~name="CLOUDFLARE-DNS",
+    ~name="NEXUS-DNS",
     ~ipAddress="1.1.1.1",
-    ~securityLevel=Strong,
-  ))
-
-  // External web servers
-  Dict.set(manager.devices, "142.250.80.46", DeviceFactory.createDevice(
-    ~deviceType=Server,
-    ~name="GOOGLE-WEB",
-    ~ipAddress="142.250.80.46",
-    ~securityLevel=Strong,
-  ))
-  Dict.set(manager.devices, "140.82.121.4", DeviceFactory.createDevice(
-    ~deviceType=Server,
-    ~name="GITHUB-WEB",
-    ~ipAddress="140.82.121.4",
     ~securityLevel=Strong,
   ))
   Dict.set(manager.devices, "104.16.132.229", DeviceFactory.createDevice(
     ~deviceType=Server,
-    ~name="CLOUDFLARE-WEB",
+    ~name="NEXUS-WEB",
     ~ipAddress="104.16.132.229",
+    ~securityLevel=Strong,
+  ))
+
+  // DevHub Repository (140.82.121.x)
+  Dict.set(manager.devices, "140.82.121.1", DeviceFactory.createDevice(
+    ~deviceType=Router,
+    ~name="DEVHUB-ROUTER",
+    ~ipAddress="140.82.121.1",
+    ~securityLevel=Strong,
+  ))
+  Dict.set(manager.devices, "140.82.121.4", DeviceFactory.createDevice(
+    ~deviceType=Server,
+    ~name="DEVHUB-WEB",
+    ~ipAddress="140.82.121.4",
     ~securityLevel=Strong,
   ))
 
   // Initialize DNS servers (records for hostname resolution)
   initializeDnsServers(manager)
+
+  // ========================================
+  // INITIALIZE SERVICES FOR ALL DEVICES
+  // ========================================
+  // Initialize services for servers and laptops so they're ready for SSH/network access
+  Dict.toArray(manager.devices)->Array.forEach(((ip, device)) => {
+    let info = device.getInfo()
+    switch info.deviceType {
+    | Server =>
+      // Servers auto-start SSH, HTTP, Security services
+      LaptopState.ServiceManager.initializeServices(ip, ~isServer=true)
+    | Laptop | Terminal =>
+      // Laptops/Terminals auto-start Desktop, Security services
+      LaptopState.ServiceManager.initializeServices(ip, ~isServer=false)
+    | Router | IotCamera | PowerStation | UPS => ()  // No services for these
+    }
+  })
 }
 
 // Create a new network manager
@@ -348,29 +606,24 @@ let scanNetwork = (manager: t): array<device> => {
 }
 
 // Check if a device is reachable FROM a specific source IP
-// Star topology: all traffic goes through router
-// Same subnet: source -> router -> destination (or direct if same switch segment)
-// Different subnet: source -> router -> destination
+// Uses NetworkZones for proper network segmentation and access control
 let isReachableFrom = (manager: t, sourceIp: string, destIp: string): bool => {
-  // Can't reach yourself (well, you can, but let's keep it simple)
+  // Can reach yourself
   if sourceIp == destIp {
     true
   } else {
-    // Check if router is up (required for all traffic in star topology)
-    switch Dict.get(manager.devices, manager.routerIp) {
-    | None => false // Router down = network down
-    | Some(_) =>
-      // Check if destination is a local device
-      switch Dict.get(manager.devices, destIp) {
-      | Some(_) =>
-        // Local device - reachable through router
-        true
-      | None =>
-        // Not a local device - check if it's an external address
-        // External addresses (like DNS servers, internet hosts) are reachable through the router
-        // The router acts as the gateway to the internet
-        true
+    // Check if destination device exists
+    let destExists = Dict.get(manager.devices, destIp)->Option.isSome
+
+    // If destination doesn't exist and not in a defined zone, treat as public internet
+    if !destExists {
+      switch NetworkZones.getZoneByIp(destIp) {
+      | None => NetworkZones.canIpAccessIp(sourceIp, destIp) // Public internet access check
+      | Some(_) => false // Zone exists but device doesn't
       }
+    } else {
+      // Device exists, use zone-based access control
+      NetworkZones.canIpAccessIp(sourceIp, destIp)
     }
   }
 }
@@ -388,15 +641,12 @@ let getDeviceInfo = (manager: t, ipAddress: string): option<deviceInfo> => {
   }
 }
 
-// Check if SSH is available on a device (simplified: only terminals and servers have SSH)
+// Check if SSH is available on a device (checks if SSH service is running)
 let hasSSH = (manager: t, ipAddress: string): bool => {
   switch Dict.get(manager.devices, ipAddress) {
-  | Some(device) =>
-    let info = device.getInfo()
-    switch info.deviceType {
-    | Terminal | Server | Laptop => true
-    | Router | IotCamera | PowerStation | UPS => false
-    }
+  | Some(_device) =>
+    // Check if SSH service is running via ServiceManager
+    LaptopState.ServiceManager.isServiceRunning(ipAddress, SSH)
   | None => false
   }
 }

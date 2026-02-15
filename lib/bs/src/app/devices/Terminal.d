@@ -1,1 +1,1 @@
-src/app/devices/Terminal.cmj : src/bindings/Pixi.cmj src/bindings/Pixi.cmi src/app/devices/PowerManager.cmj src/app/devices/PowerManager.cmi
+src/app/devices/Terminal.cmj : src/app/devices/DeviceActivity.cmj src/app/devices/DeviceActivity.cmi src/app/devices/DeviceView.cmj src/app/devices/DeviceView.cmi src/app/devices/LaptopState.cmj src/app/devices/LaptopState.cmi src/bindings/Pixi.cmj src/bindings/Pixi.cmi src/app/devices/PowerManager.cmj src/app/devices/PowerManager.cmi src/app/devices/SystemLogs.cmj src/app/devices/SystemLogs.cmi

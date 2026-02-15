@@ -3,10 +3,13 @@
 import * as Caml from "rescript/lib/es6/caml.js";
 import * as Core__Int from "@rescript/core/src/Core__Int.res.mjs";
 import * as Core__Dict from "@rescript/core/src/Core__Dict.res.mjs";
+import * as DeviceView from "./DeviceView.res.mjs";
 import * as LaptopState from "./LaptopState.res.mjs";
 import * as Core__Option from "@rescript/core/src/Core__Option.res.mjs";
+import * as NetworkZones from "./NetworkZones.res.mjs";
 import * as PowerManager from "./PowerManager.res.mjs";
 import * as DeviceFactory from "./DeviceFactory.res.mjs";
+import * as GlobalNetworkData from "./GlobalNetworkData.res.mjs";
 
 function getSubnet(ip) {
   var parts = ip.split(".");
@@ -30,44 +33,64 @@ function initializeDnsServers(manager) {
     ip: "8.8.8.8",
     records: [
       {
-        hostname: "google.com",
+        hostname: "atlas.com",
         ip: "142.250.80.46"
       },
       {
-        hostname: "www.google.com",
+        hostname: "www.atlas.com",
         ip: "142.250.80.46"
       },
       {
-        hostname: "github.com",
+        hostname: "devhub.com",
         ip: "140.82.121.4"
       },
       {
-        hostname: "www.github.com",
+        hostname: "www.devhub.com",
         ip: "140.82.121.4"
       },
       {
-        hostname: "corp-intranet.local",
-        ip: "10.0.0.100"
+        hostname: "nexus.com",
+        ip: "104.16.132.229"
+      },
+      {
+        hostname: "www.nexus.com",
+        ip: "104.16.132.229"
       },
       {
         hostname: "mail.corp.local",
         ip: "10.0.0.25"
       },
       {
+        hostname: "vpn.corp.local",
+        ip: "10.0.0.100"
+      },
+      {
+        hostname: "ldap.corp.local",
+        ip: "10.0.1.10"
+      },
+      {
         hostname: "files.corp.local",
-        ip: "10.0.0.50"
+        ip: "10.0.1.50"
       },
       {
-        hostname: "dev.corp.local",
-        ip: "10.0.0.77"
-      },
-      {
-        hostname: "admin-panel.local",
-        ip: "192.168.1.200"
+        hostname: "corp-intranet.local",
+        ip: "10.0.1.100"
       },
       {
         hostname: "secret-server.local",
-        ip: "10.0.0.99"
+        ip: "10.0.1.99"
+      },
+      {
+        hostname: "fileserver.corp.local",
+        ip: "10.0.1.200"
+      },
+      {
+        hostname: "dev.corp.local",
+        ip: "10.0.2.77"
+      },
+      {
+        hostname: "admin-panel.local",
+        ip: "172.16.0.200"
       }
     ],
     isOnline: true
@@ -76,15 +99,15 @@ function initializeDnsServers(manager) {
     ip: "1.1.1.1",
     records: [
       {
-        hostname: "google.com",
+        hostname: "atlas.com",
         ip: "142.250.80.46"
       },
       {
-        hostname: "github.com",
+        hostname: "devhub.com",
         ip: "140.82.121.4"
       },
       {
-        hostname: "cloudflare.com",
+        hostname: "nexus.com",
         ip: "104.16.132.229"
       }
     ],
@@ -93,28 +116,67 @@ function initializeDnsServers(manager) {
 }
 
 function initializeNetwork(manager) {
-  manager.devices["192.168.1.1"] = DeviceFactory.createDevice("Router", "WIFI-ROUTER", "192.168.1.1", "Weak", undefined, undefined);
+  GlobalNetworkData.initializeDefaultContent();
+  DeviceView.initializeDefaultFilesystems();
+  manager.devices["192.168.1.1"] = DeviceFactory.createDevice("Router", "DOWNTOWN-ROUTER", "192.168.1.1", "Medium", undefined, undefined);
   manager.devices["192.168.1.102"] = DeviceFactory.createDevice("Laptop", "CORP-LAPTOP-42", "192.168.1.102", "Medium", undefined, undefined);
   manager.devices["192.168.1.103"] = DeviceFactory.createDevice("Laptop", "CORP-LAPTOP-17", "192.168.1.103", "Weak", undefined, undefined);
-  manager.devices["192.168.1.105"] = DeviceFactory.createDevice("IotCamera", "CAM-ENTRANCE", "192.168.1.105", "Open", 1050.0, undefined);
-  manager.devices["192.168.1.200"] = DeviceFactory.createDevice("Server", "ADMIN-PANEL", "192.168.1.200", "Medium", undefined, undefined);
-  manager.devices["192.168.1.250"] = DeviceFactory.createDevice("PowerStation", "MAIN-PWR-STATION", "192.168.1.250", "Medium", undefined, undefined);
-  manager.devices["192.168.1.251"] = DeviceFactory.createDevice("UPS", "UPS-CRITICAL", "192.168.1.251", "Open", undefined, "192.168.1.250");
-  PowerManager.connectDeviceToUPS("192.168.1.1", "192.168.1.251");
-  PowerManager.connectDeviceToUPS("192.168.1.200", "192.168.1.251");
-  PowerManager.connectDeviceToUPS("10.0.0.25", "192.168.1.251");
-  PowerManager.connectDeviceToUPS("10.0.0.50", "192.168.1.251");
+  manager.devices["192.168.2.1"] = DeviceFactory.createDevice("Router", "RURAL-ROUTER", "192.168.2.1", "Weak", undefined, undefined);
+  manager.devices["192.168.2.100"] = DeviceFactory.createDevice("Laptop", "HOME-LAPTOP", "192.168.2.100", "Weak", undefined, undefined);
+  manager.devices["192.168.100.1"] = DeviceFactory.createDevice("Router", "IOT-ROUTER", "192.168.100.1", "Weak", undefined, undefined);
+  manager.devices["192.168.100.10"] = DeviceFactory.createDevice("IotCamera", "CAM-ENTRANCE", "192.168.100.10", "Open", undefined, undefined);
+  manager.devices["10.0.0.1"] = DeviceFactory.createDevice("Router", "FIREWALL-EXT", "10.0.0.1", "Strong", undefined, undefined);
   manager.devices["10.0.0.25"] = DeviceFactory.createDevice("Server", "MAIL-SERVER", "10.0.0.25", "Strong", undefined, undefined);
-  manager.devices["10.0.0.50"] = DeviceFactory.createDevice("Server", "DB-SERVER-01", "10.0.0.50", "Strong", undefined, undefined);
-  manager.devices["10.0.0.77"] = DeviceFactory.createDevice("Terminal", "DEV-TERMINAL", "10.0.0.77", "Weak", undefined, undefined);
-  manager.devices["10.0.0.99"] = DeviceFactory.createDevice("Server", "SECRET-SERVER", "10.0.0.99", "Strong", undefined, undefined);
-  manager.devices["10.0.0.100"] = DeviceFactory.createDevice("Server", "CORP-INTRANET", "10.0.0.100", "Medium", undefined, undefined);
-  manager.devices["8.8.8.8"] = DeviceFactory.createDevice("Server", "GOOGLE-DNS", "8.8.8.8", "Strong", undefined, undefined);
-  manager.devices["1.1.1.1"] = DeviceFactory.createDevice("Server", "CLOUDFLARE-DNS", "1.1.1.1", "Strong", undefined, undefined);
-  manager.devices["142.250.80.46"] = DeviceFactory.createDevice("Server", "GOOGLE-WEB", "142.250.80.46", "Strong", undefined, undefined);
-  manager.devices["140.82.121.4"] = DeviceFactory.createDevice("Server", "GITHUB-WEB", "140.82.121.4", "Strong", undefined, undefined);
-  manager.devices["104.16.132.229"] = DeviceFactory.createDevice("Server", "CLOUDFLARE-WEB", "104.16.132.229", "Strong", undefined, undefined);
+  manager.devices["10.0.0.100"] = DeviceFactory.createDevice("Server", "VPN-SERVER", "10.0.0.100", "Strong", undefined, undefined);
+  manager.devices["10.0.1.1"] = DeviceFactory.createDevice("Router", "FIREWALL-INT", "10.0.1.1", "Strong", undefined, undefined);
+  manager.devices["10.0.1.10"] = DeviceFactory.createDevice("Server", "LDAP-SERVER", "10.0.1.10", "Strong", undefined, undefined);
+  manager.devices["10.0.1.50"] = DeviceFactory.createDevice("Server", "DB-SERVER-01", "10.0.1.50", "Strong", undefined, undefined);
+  manager.devices["10.0.1.99"] = DeviceFactory.createDevice("Server", "SECRET-SERVER", "10.0.1.99", "Strong", undefined, undefined);
+  manager.devices["10.0.1.100"] = DeviceFactory.createDevice("Server", "CORP-INTRANET", "10.0.1.100", "Medium", undefined, undefined);
+  manager.devices["10.0.1.200"] = DeviceFactory.createDevice("Server", "FILE-SERVER", "10.0.1.200", "Medium", undefined, undefined);
+  manager.devices["10.0.2.77"] = DeviceFactory.createDevice("Terminal", "DEV-TERMINAL", "10.0.2.77", "Weak", undefined, undefined);
+  manager.devices["10.0.3.10"] = DeviceFactory.createDevice("Server", "IDS-IPS", "10.0.3.10", "Strong", undefined, undefined);
+  manager.devices["10.0.3.20"] = DeviceFactory.createDevice("Server", "SIEM-SERVER", "10.0.3.20", "Strong", undefined, undefined);
+  manager.devices["10.0.3.30"] = DeviceFactory.createDevice("Server", "BACKUP-SERVER", "10.0.3.30", "Strong", undefined, undefined);
+  manager.devices["172.16.0.200"] = DeviceFactory.createDevice("Server", "ADMIN-PANEL", "172.16.0.200", "Medium", undefined, undefined);
+  manager.devices["10.10.1.1"] = DeviceFactory.createDevice("Server", "SCADA-CONTROLLER", "10.10.1.1", "Strong", undefined, undefined);
+  manager.devices["10.10.1.100"] = DeviceFactory.createDevice("PowerStation", "MAIN-PWR-STATION", "10.10.1.100", "Medium", undefined, undefined);
+  manager.devices["192.168.1.251"] = DeviceFactory.createDevice("UPS", "UPS-CRITICAL", "192.168.1.251", "Open", undefined, "10.10.1.100");
+  PowerManager.connectDeviceToUPS("192.168.1.1", "192.168.1.251");
+  PowerManager.connectDeviceToUPS("10.0.0.25", "192.168.1.251");
+  PowerManager.connectDeviceToUPS("10.0.1.50", "192.168.1.251");
+  PowerManager.connectDeviceToUPS("172.16.0.200", "192.168.1.251");
+  manager.devices["100.64.1.1"] = DeviceFactory.createDevice("Router", "RURAL-ISP", "100.64.1.1", "Medium", undefined, undefined);
+  manager.devices["100.64.2.1"] = DeviceFactory.createDevice("Router", "BUSINESS-ISP", "100.64.2.1", "Medium", undefined, undefined);
+  manager.devices["198.51.100.1"] = DeviceFactory.createDevice("Router", "REGIONAL-ISP", "198.51.100.1", "Strong", undefined, undefined);
+  manager.devices["203.0.113.1"] = DeviceFactory.createDevice("Router", "NA-BACKBONE", "203.0.113.1", "Strong", undefined, undefined);
+  manager.devices["203.0.113.2"] = DeviceFactory.createDevice("Router", "EU-BACKBONE", "203.0.113.2", "Strong", undefined, undefined);
+  manager.devices["203.0.113.3"] = DeviceFactory.createDevice("Router", "ASIA-BACKBONE", "203.0.113.3", "Strong", undefined, undefined);
+  manager.devices["203.0.113.4"] = DeviceFactory.createDevice("Router", "SA-BACKBONE", "203.0.113.4", "Strong", undefined, undefined);
+  manager.devices["203.0.113.5"] = DeviceFactory.createDevice("Router", "AF-BACKBONE", "203.0.113.5", "Strong", undefined, undefined);
+  manager.devices["8.8.8.1"] = DeviceFactory.createDevice("Router", "ATLAS-ROUTER", "8.8.8.1", "Strong", undefined, undefined);
+  manager.devices["8.8.8.8"] = DeviceFactory.createDevice("Server", "ATLAS-DNS", "8.8.8.8", "Strong", undefined, undefined);
+  manager.devices["142.250.80.46"] = DeviceFactory.createDevice("Server", "ATLAS-WEB", "142.250.80.46", "Strong", undefined, undefined);
+  manager.devices["1.1.1.254"] = DeviceFactory.createDevice("Router", "NEXUS-ROUTER", "1.1.1.254", "Strong", undefined, undefined);
+  manager.devices["1.1.1.1"] = DeviceFactory.createDevice("Server", "NEXUS-DNS", "1.1.1.1", "Strong", undefined, undefined);
+  manager.devices["104.16.132.229"] = DeviceFactory.createDevice("Server", "NEXUS-WEB", "104.16.132.229", "Strong", undefined, undefined);
+  manager.devices["140.82.121.1"] = DeviceFactory.createDevice("Router", "DEVHUB-ROUTER", "140.82.121.1", "Strong", undefined, undefined);
+  manager.devices["140.82.121.4"] = DeviceFactory.createDevice("Server", "DEVHUB-WEB", "140.82.121.4", "Strong", undefined, undefined);
   initializeDnsServers(manager);
+  Object.entries(manager.devices).forEach(function (param) {
+        var ip = param[0];
+        var info = param[1].getInfo();
+        var match = info.deviceType;
+        switch (match) {
+          case "Server" :
+              return LaptopState.ServiceManager.initializeServices(ip, true);
+          case "Laptop" :
+          case "Terminal" :
+              return LaptopState.ServiceManager.initializeServices(ip, false);
+          default:
+            return ;
+        }
+      });
 }
 
 function make() {
@@ -215,11 +277,15 @@ function isReachableFrom(manager, sourceIp, destIp) {
   if (sourceIp === destIp) {
     return true;
   }
-  var match = manager.devices[manager.routerIp];
+  var destExists = Core__Option.isSome(manager.devices[destIp]);
+  if (destExists) {
+    return NetworkZones.canIpAccessIp(sourceIp, destIp);
+  }
+  var match = NetworkZones.getZoneByIp(destIp);
   if (match !== undefined) {
-    return true;
-  } else {
     return false;
+  } else {
+    return NetworkZones.canIpAccessIp(sourceIp, destIp);
   }
 }
 
@@ -236,19 +302,11 @@ function getDeviceInfo(manager, ipAddress) {
 }
 
 function hasSSH(manager, ipAddress) {
-  var device = manager.devices[ipAddress];
-  if (device === undefined) {
+  var _device = manager.devices[ipAddress];
+  if (_device !== undefined) {
+    return LaptopState.ServiceManager.isServiceRunning(ipAddress, "SSH");
+  } else {
     return false;
-  }
-  var info = device.getInfo();
-  var match = info.deviceType;
-  switch (match) {
-    case "Laptop" :
-    case "Server" :
-    case "Terminal" :
-        return true;
-    default:
-      return false;
   }
 }
 
@@ -328,7 +386,7 @@ function getDeviceState(manager, ipAddress) {
   if (state !== undefined) {
     return state;
   }
-  var state$1 = LaptopState.createLaptopState(ipAddress, info.name, undefined);
+  var state$1 = LaptopState.createLaptopState(ipAddress, info.name, undefined, undefined);
   manager.deviceStates[ipAddress] = state$1;
   var createNI = createNetworkInterfaceForRef.contents;
   if (createNI !== undefined) {

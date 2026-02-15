@@ -1,0 +1,1 @@
+src/app/screens/WorldMapScreen.cmj : src/app/screens/LocationData.cmj src/app/screens/LocationData.cmi src/app/screens/LocationRegistry.cmj src/app/screens/LocationRegistry.cmi src/bindings/Motion.cmj src/bindings/Motion.cmi src/engine/navigation/Navigation.cmj src/engine/navigation/Navigation.cmi src/bindings/Pixi.cmj src/bindings/Pixi.cmi

@@ -3,6 +3,18 @@
 // Side-effect import for @pixi/sound (triggers plugin registration)
 let _ = PixiSound.sound
 
+// Side-effect imports for location screens (triggers registry registration)
+let _ = FieldScreen.constructor
+let _ = CityScreen.constructor
+let _ = LabScreen.constructor
+let _ = AtlasScreen.constructor
+let _ = NexusScreen.constructor
+let _ = DevHubScreen.constructor
+let _ = RuralISPScreen.constructor
+let _ = BusinessISPScreen.constructor
+let _ = RegionalISPScreen.constructor
+let _ = BackboneScreen.constructor
+
 // Console log helper
 let log: string => unit = %raw(`function(msg) { console.log(msg) }`)
 let logError: exn => unit = %raw(`function(e) { console.error("Error:", e); if (e && e._1) console.error("Details:", e._1.message, e._1.stack) }`)
@@ -37,10 +49,10 @@ let startApp = async (): unit => {
   await Navigation.showScreen(engine.navigation, LoadScreen.constructor)
   log("Load screen shown")
 
-  // Show the world screen (physical world view with hacker character)
-  log("Showing world screen...")
-  await Navigation.showScreen(engine.navigation, WorldScreen.constructor)
-  log("World screen shown")
+  // Show the world map screen (location selection)
+  log("Showing world map screen...")
+  await Navigation.showScreen(engine.navigation, WorldMapScreen.constructor)
+  log("World map screen shown")
 }
 
 // Start the application with error handling

@@ -22,6 +22,20 @@ let getInfo = (device: t): deviceInfo => {
   securityLevel: device.securityLevel,
 }
 
+// Terminal device states (like laptops, not servers)
+module TerminalStates = {
+  let states: Dict.t<LaptopState.laptopState> = Dict.make()
+
+  let register = (ip: string, state: LaptopState.laptopState): unit => {
+    Dict.set(states, ip, state)
+    state.bootTime = %raw(`Date.now()`)
+  }
+
+  let get = (ip: string): option<LaptopState.laptopState> => {
+    Dict.get(states, ip)
+  }
+}
+
 let openGUI = (device: t): DeviceWindow.t => {
   let win = DeviceWindow.make(
     ~title=`TERMINAL - ${device.name} [${device.ipAddress}]`,
@@ -32,7 +46,28 @@ let openGUI = (device: t): DeviceWindow.t => {
     (),
   )
 
-  let terminal = Terminal.make(~width=490.0, ~height=360.0, ~prompt="> ", ~ipAddress=device.ipAddress, ())
+  // Get or create terminal state (like a laptop, not a server)
+  let state = switch TerminalStates.get(device.ipAddress) {
+  | Some(s) => s
+  | None =>
+    let newState = LaptopState.createLaptopState(
+      ~ipAddress=device.ipAddress,
+      ~hostname=device.name,
+      ~isServer=false,
+      (),
+    )
+    TerminalStates.register(device.ipAddress, newState)
+    newState
+  }
+
+  let terminal = Terminal.make(
+    ~width=490.0,
+    ~height=360.0,
+    ~prompt=`${device.name}> `,
+    ~ipAddress=device.ipAddress,
+    ~deviceState=state,
+    ()
+  )
   let _ = Container.addChild(DeviceWindow.getContent(win), terminal.container)
 
   win
