@@ -1,6 +1,6 @@
 ## Project Overview
 
-IDApixiTIK is a browser-based hacking/network simulator game built with ReScript and PixiJS. It combines platformer gameplay with realistic network simulation, where players interact with devices (laptops, routers, servers, cameras) and use terminal/SSH mechanics to navigate networks.
+IDApTIK is a browser-based hacking/network simulator game built with ReScript and PixiJS. It combines platformer gameplay with realistic network simulation, where players interact with devices (laptops, routers, servers, cameras) and use terminal/SSH mechanics to navigate networks.
 
 ## Development Commands
 
